@@ -1,0 +1,118 @@
+---
+title: 'Coursera ML: Multiple linear regression quiz'
+author: "Varun Boodram"
+date: "December 11, 2015"
+output:
+  html_document:
+    theme: cerulean
+---
+
+This is my first attempt to solve the multople linear regression programming problems in the second week of the Regression module of the ML course. I intend also to to this in python. 
+
+#### Obtention and cleaning
+The data were downloaded from the [course website](https://www.coursera.org/learn/ml-regression/supplement/7xN9c/reading-exploring-different-multiple-regression-models-for-house-price) in .csv format, and included in the current working directory. 
+
+```{r}
+train_data<-read.csv("./datasets/kc_house_train_data.csv", sep = ",", quote = " ", stringsAsFactors = F)
+test_data<- read.csv("./datasets/kc_house_test_data.csv", sep = ",", quote = " ", stringsAsFactors = F)
+dim(train_data)
+train_data[!complete.cases(train_data)]
+```
+
+The instructions for this assignment require that the each data point have the following classes: str, str, float, float, float, float, int, str, int, int, int, int, int, int, int, int, str, float, float, float, float. Floats are numeric in r
+
+```{r}
+classes<-vector()
+for (i in 1:ncol(train_data)){
+        classes[i]<-class(train_data[,i])
+}
+classes
+```
+There are differences here, which we adjust
+```{r}
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-as.character(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.character(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-as.character(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-as.character(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+classes<-vector()
+for (i in 1:ncol(train_data)){
+        classes[i]<-class(train_data[,i])
+}
+classes
+```
+
+Similar adjustments are made to the classes of the ```test_data```.
+
+```{r, echo=FALSE}
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-as.character(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.character(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-as.character(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-as.character(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+```
+
+```{r}
+classes<-vector()
+for (i in 1:ncol(test_data)){
+        classes[i]<-class(test_data[,i])
+}
+classes
+```
+Comparing to str, str, float, float, float, float, int, str, int, int, int, int, int, int, int, int, str, float, float, float, float, shows that our inital data cleaning step is complete
+
+#### Data engineering
+
+*Although we often think of multiple regression as including multiple different features (e.g. # of bedrooms, square feet, and # of bathrooms) but we can also consider transformations of existing variables e.g. the log of the square feet or even "interaction" variables such as the product of bedrooms and bathrooms. Add 4 new variables in both your train_data and test_data.*
+
+* ‘bedrooms_squared’ = ‘bedrooms’*‘bedrooms’
+* ‘bed_bath_rooms’ = ‘bedrooms’*‘bathrooms’
+* ‘log_sqft_living’ = log(‘sqft_living’)
+* ‘lat_plus_long’ = ‘lat’ + ‘long’
+
+```{r}
+# create the features for the train set
+train_data$bedrooms_squared <- train_data$bedrooms*train_data$bedrooms
+train_data$bed_bath_rooms <- train_data$bedrooms*train_data$bathrooms
+train_data$log_sqft_living <- log(train_data$sqft_living)
+train_data$lat_plus_long <- train_data$lat + train_data$long
+
+# create the features for the test set
+test_data$bedrooms_squared <- test_data$bedrooms*test_data$bedrooms
+test_data$bed_bath_rooms <- test_data$bedrooms*test_data$bathrooms
+test_data$log_sqft_living <- log(test_data$sqft_living)
+test_data$lat_plus_long <- test_data$lat + test_data$long
+```
+
