@@ -89,29 +89,10 @@ classes</code></pre>
 ## [11] &quot;integer&quot;   &quot;integer&quot;   &quot;integer&quot;   &quot;integer&quot;   &quot;integer&quot;  
 ## [16] &quot;integer&quot;   &quot;character&quot; &quot;numeric&quot;   &quot;numeric&quot;   &quot;integer&quot;  
 ## [21] &quot;integer&quot;</code></pre>
-<p>There are differences here, which we adjust</p>
-<pre class="r"><code>train_data$bathrooms&lt;-as.numeric(train_data$bathrooms)
-train_data$waterfront&lt;-as.integer(train_data$waterfront)
-train_data$sqft_above&lt;-as.integer(train_data$sqft_above)
-train_data$sqft_living15&lt;-as.numeric(train_data$sqft_living15)
-train_data$grade&lt;-as.integer(train_data$grade)
-train_data$yr_renovated&lt;-as.integer(train_data$yr_renovated)
-train_data$price&lt;-as.numeric(train_data$price)
-train_data$bedrooms&lt;-as.numeric(train_data$bedrooms)
-train_data$zipcode&lt;-as.character(train_data$zipcode)
-train_data$long&lt;-as.numeric(train_data$long)
-train_data$sqft_lot15&lt;-as.numeric(train_data$sqft_lot15)
-train_data$sqft_living&lt;-as.numeric(train_data$sqft_living)
-train_data$floors&lt;-as.character(train_data$floors)
-train_data$condition&lt;-as.integer(train_data$condition)
-train_data$lat&lt;-as.numeric(train_data$lat)
-train_data$date&lt;-as.character(train_data$date)
-train_data$sqft_basement&lt;-as.integer(train_data$sqft_basement)
-train_data$yr_built&lt;-as.integer(train_data$yr_built)
-train_data$id&lt;-as.character(train_data$id)
-train_data$sqft_lot&lt;-as.integer(train_data$sqft_lot)
-train_data$view&lt;-as.integer(train_data$view)
-classes&lt;-vector()
+<p>There are differences here, which we adjust as follows</p>
+<pre class="r"><code>train_data$bathrooms&lt;-as.numeric(train_data$bathrooms)</code></pre>
+<p>and save space by not showing every line of code.</p>
+<pre class="r"><code>classes&lt;-vector()
 for (i in 1:ncol(train_data)){
         classes[i]&lt;-class(train_data[,i])
 }
@@ -132,7 +113,7 @@ classes</code></pre>
 ## [11] &quot;integer&quot;   &quot;integer&quot;   &quot;integer&quot;   &quot;integer&quot;   &quot;integer&quot;  
 ## [16] &quot;integer&quot;   &quot;character&quot; &quot;numeric&quot;   &quot;numeric&quot;   &quot;numeric&quot;  
 ## [21] &quot;numeric&quot;</code></pre>
-<p>Comparing to str, str, float, float, float, float, int, str, int, int, int, int, int, int, int, int, str, float, float, float, float, shows that our inital data cleaning step is complete</p>
+<p>Comparing to str, str, float, float, float, float, int, str, int, int, int, int, int, int, int, int, str, float, float, float, float, shows that our initial data cleaning step is complete</p>
 </div>
 <div id="data-engineering" class="section level4">
 <h4>Data engineering</h4>
@@ -154,6 +135,229 @@ test_data$bedrooms_squared &lt;- test_data$bedrooms*test_data$bedrooms
 test_data$bed_bath_rooms &lt;- test_data$bedrooms*test_data$bathrooms
 test_data$log_sqft_living &lt;- log(test_data$sqft_living)
 test_data$lat_plus_long &lt;- test_data$lat + test_data$long</code></pre>
+<div id="quiz-question-what-are-the-mean-arithmetic-average-values-of-your-4-new-variables-on-test-data-round-to-2-digits" class="section level5">
+<h5>Quiz Question: what are the mean (arithmetic average) values of your 4 new variables on TEST data? (round to 2 digits)</h5>
+<pre class="r"><code>for (i in (ncol(test_data)-4):ncol(test_data)){
+        print(paste(&quot;mean of&quot;, 
+                    names(test_data)[i], 
+                    &quot;is&quot;, 
+                    round(mean(test_data[,i]), 
+                          digits = 2),
+                    sep = &quot; &quot;
+                    )
+              )
+        }</code></pre>
+<pre><code>## [1] &quot;mean of sqft_lot15 is 12735.88&quot;
+## [1] &quot;mean of bedrooms_squared is 12.45&quot;
+## [1] &quot;mean of bed_bath_rooms is 7.5&quot;
+## [1] &quot;mean of log_sqft_living is 7.55&quot;
+## [1] &quot;mean of lat_plus_long is -74.65&quot;</code></pre>
+</div>
+<div id="use-graphlab.linear_regression.create-or-any-other-regression-libraryfunction-to-estimate-the-regression-coefficientsweights-for-predicting-price-for-the-following-three-modelsin-all-3-models-include-an-intercept-most-software-does-this-by-default." class="section level5">
+<h5>Use graphlab.linear_regression.create (or any other regression library/function) to estimate the regression coefficients/weights for predicting ‘price’ for the following three models:(In all 3 models include an intercept – most software does this by default).</h5>
+<ul>
+<li>Model 1: ‘sqft_living’, ‘bedrooms’, ‘bathrooms’, ‘lat’, and ‘long’</li>
+</ul>
+<pre class="r"><code>library(stats)
+model1&lt;-lm(formula = price~sqft_living+bedrooms+bathrooms+lat+long, data = train_data)</code></pre>
+<ul>
+<li>Model 2: ‘sqft_living’, ‘bedrooms’, ‘bathrooms’, ‘lat’,‘long’, and ‘bed_bath_rooms’</li>
+</ul>
+<pre class="r"><code>model2 &lt;- lm(formula = price~sqft_living + bedrooms + bathrooms + lat + long + bed_bath_rooms, data = train_data)</code></pre>
+<ul>
+<li>Model 3: ‘sqft_living’, ‘bedrooms’, ‘bathrooms’, ‘lat’,‘long’, ‘bed_bath_rooms’, ‘bedrooms_squared’, ‘log_sqft_living’, and ‘lat_plus_long’</li>
+</ul>
+<pre class="r"><code>model3 &lt;- lm(formula = price~sqft_living + bedrooms + bathrooms + lat + long + bed_bath_rooms + bedrooms_squared + log_sqft_living + lat_plus_long, data = train_data)</code></pre>
+</div>
+<div id="quiz-question-what-is-the-sign-positive-or-negative-for-the-coefficientweight-for-bathrooms-in-model-1" class="section level5">
+<h5>Quiz Question: What is the sign (positive or negative) for the coefficient/weight for ‘bathrooms’ in Model 1?</h5>
+<pre class="r"><code>summary(model1)$coefficients</code></pre>
+<pre><code>##                  Estimate   Std. Error    t value      Pr(&gt;|t|)
+## (Intercept) -6.907573e+07 1.647001e+06 -41.940312  0.000000e+00
+## sqft_living  3.122586e+02 3.183162e+00  98.096986  0.000000e+00
+## bedrooms    -5.958653e+04 2.482861e+03 -23.999140 3.076807e-125
+## bathrooms    1.570674e+04 3.587158e+03   4.378603  1.201402e-05
+## lat          6.586193e+05 1.309741e+04  50.286230  0.000000e+00
+## long        -3.093744e+05 1.326025e+04 -23.330959 1.421639e-118</code></pre>
+</div>
+<div id="quiz-question-what-is-the-sign-positive-or-negative-for-the-coefficientweight-for-bathrooms-in-model-2" class="section level5">
+<h5>Quiz Question: What is the sign (positive or negative) for the coefficient/weight for ‘bathrooms’ in Model 2?</h5>
+<pre class="r"><code>summary(model2)$coefficients</code></pre>
+<pre><code>##                     Estimate   Std. Error    t value      Pr(&gt;|t|)
+## (Intercept)    -6.686797e+07 1.647625e+06 -40.584450  0.000000e+00
+## sqft_living     3.066101e+02 3.196886e+00  95.908970  0.000000e+00
+## bedrooms       -1.134464e+05 4.797612e+03 -23.646426 1.067118e-121
+## bathrooms      -7.146131e+04 7.552563e+03  -9.461863  3.402138e-21
+## lat             6.548446e+05 1.303680e+04  50.230461  0.000000e+00
+## long           -2.942990e+05 1.324578e+04 -22.218326 7.231375e-108
+## bed_bath_rooms  2.557965e+04 1.953134e+03  13.096723  5.260576e-39</code></pre>
+<p><em>Is the sign for the coefficient the same in both models? Think about why this might be the case.</em></p>
+<p>The signs are different. This may be the effect of the feature <code>bed_bath_rooms</code>, the intercept of which is quite large. Perhaps on thier own, the bedroom and bathroom features have less of an inpact on housing prices than thier product, and so the weight of the effect of the bathroom is reduced in this model.</p>
+<p><em>Now using your three estimated models compute the RSS (Residual Sum of Squares) on the Training data.</em></p>
+<pre class="r"><code># resid() returns the residuals of the fit model. The RSS is computed with sum(resid()^2)
+RSS1 &lt;- sum(resid(model1)^2)
+RSS2 &lt;- sum(resid(model2)^2)
+RSS3 &lt;- sum(resid(model3)^2)
+all_RSS &lt;- data.frame(RSS1, RSS2, RSS3); all_RSS</code></pre>
+<pre><code>##         RSS1         RSS2         RSS3
+## 1 9.6788e+14 9.584196e+14 9.034365e+14</code></pre>
+</div>
+<div id="quiz-question-which-model-1-2-or-3-had-the-lowest-rss-on-training-data" class="section level5">
+<h5>Quiz Question: Which model (1, 2 or 3) had the lowest RSS on TRAINING data?</h5>
+<p>This is given by <code>model3</code></p>
+<p><em>Now using your three estimated models compute the RSS on the Testing data</em></p>
+<pre class="r"><code>predictions1&lt;-predict(object = model1, newdata = test_data)
+predictions2&lt;-predict(object = model2, newdata = test_data)
+predictions3&lt;-predict(object = model3, newdata = test_data)</code></pre>
+<pre><code>## Warning in predict.lm(object = model3, newdata = test_data): prediction
+## from a rank-deficient fit may be misleading</code></pre>
+<pre class="r"><code>test_residuals1 &lt;- predictions1-test_data$price
+test_residuals2 &lt;- predictions2-test_data$price
+test_residuals3 &lt;- predictions3-test_data$price
+test_RSS1 &lt;- sum(test_residuals1^2)
+test_RSS2 &lt;- sum(test_residuals2^2)
+test_RSS3 &lt;- sum(test_residuals3^2)
+all_test_RSS&lt;-data.frame(test_RSS1, test_RSS2, test_RSS3)
+all_test_RSS</code></pre>
+<pre><code>##      test_RSS1    test_RSS2    test_RSS3
+## 1 2.255005e+14 2.233775e+14 2.592363e+14</code></pre>
+</div>
+<div id="quiz-question-which-model-1-2-or-3-had-the-lowest-rss-on-testing-data" class="section level5">
+<h5>Quiz Question: Which model (1, 2, or 3) had the lowest RSS on TESTING data?</h5>
+<p>This is given by <code>model2</code></p>
+<p><em>Did you get the same answer for 9 and 11? Think about why this might be the case.</em></p>
+<p>The warning message above for <code>model3</code> suggests that it is not full rank: this means that some of the information captured in one feature is also represented in another. It may be the case that <code>model3</code> is overfitting the training data, and so performs less well on the test data.</p>
+<p><em>Write a function that takes a data set, a list of features (e.g. [‘sqft_living’, ‘bedrooms’]), to be used as inputs, and a name of the output (e.g. ‘price’). This function should return a features_matrix (2D array) consisting of first a column of ones followed by columns containing the values of the input features in the data set in the same order as the input list.</em></p>
+<pre class="r"><code># construct_matrix() accepts as input a list of features, a list of outputs, and a data.frame, and returns a list of the values of the feaures (as entered), and a matrix of the outputs (as entered)
+construct_features_matrix &lt;- function(features, outputs, data){
+        # convert features input to a list
+        features &lt;- as.list(features)
+        # extract the features data from the data
+        subset_data &lt;- get_output(data, features)
+        # extract what we want to predict from the data
+        subset_outputs &lt;- get_output(data, outputs)
+        # append a vector of ones to the features matrix 
+        features_matrix &lt;- create_matrix(subset_data)
+        IO &lt;- list(features_matrix, subset_outputs)
+        IO
+}
+
+# get_output() subsets the data frame into the inputs provided
+get_output &lt;- function(data, features){
+        output&lt;-matrix(nrow = nrow(data), ncol = length(features))
+        for (i in 1: length(features)){
+               output[,i]&lt;-as.numeric(data[[features[[i]]]])
+        }
+        output
+}
+
+# create_matrix appends a column of 1s to the output of get_output()
+create_matrix &lt;- function(subset_data){
+        length &lt;- nrow(subset_data)
+        concatinated &lt;- cbind(rep(1, length), subset_data)
+        concatinated
+}</code></pre>
+<p><em>If the features matrix (including a column of 1s for the constant) is stored as a 2D array (or matrix) and the regression weights are stored as a 1D array then the predicted output is just the dot product between the features matrix and the weights (with the weights on the right). Write a function ‘predict_output’ which accepts a 2D array ‘feature_matrix’ and a 1D array ‘weights’ and returns a 1D array ‘predictions’</em></p>
+<pre class="r"><code># predict_outputs() takes as inputs a matrix of features, and a weights vector (c()), and returns a vector of predicted outputs
+predict_output &lt;- function(feature_matrix, weights){
+        predictions&lt;-feature_matrix[[1]]%*%weights
+        predictions
+}</code></pre>
+<p><em>If we have a the values of a single input feature in an array ‘feature’ and the prediction ‘errors’ (predictions - output) then the derivative of the regression cost function with respect to the weight of ‘feature’ is just twice the dot product between ‘feature’ and ‘errors’. Write a function that accepts a ‘feature’ array and ‘error’ array and returns the ‘derivative’</em></p>
+<pre class="r"><code>compute_errors&lt;-function(predictions, features_matrix){
+        predictions-features_matrix[[2]]
+}
+
+feature_derivative &lt;-function(features_matrix, errors){
+        2*t(features_matrix[[1]])%*%errors
+}</code></pre>
+<p><em>Now we will use our predict_output and feature_derivative to write a gradient descent function. Although we can compute the derivative for all the features simultaneously (the gradient) we will explicitly loop over the features individually for simplicity. Write a gradient descent function that does the following</em>:</p>
+<ul>
+<li>Accepts a numpy feature_matrix 2D array, a 1D output array, an array of initial weights, a step size and a convergence tolerance.</li>
+<li>While not converged updates each feature weight by subtracting the step size times the derivative for that feature given the current weights</li>
+<li>At each step computes the magnitude/length of the gradient (square root of the sum of squared components)</li>
+<li>When the magnitude of the gradient is smaller than the input tolerance returns the final weight vector</li>
+</ul>
+<pre class="r"><code>regression_gradient_descent&lt;-function(feature_matrix, 
+                                      initial_weights, 
+                                      step_size, 
+                                      tolerance){
+        converged = FALSE
+        weights = initial_weights
+        while (converged==F){
+                predictions &lt;- predict_output(feature_matrix = features_matrix, weights = weights)
+                errors &lt;-compute_errors(predictions = predictions,
+                                        features_matrix = features_matrix)
+                derivatives &lt;- feature_derivative(features_matrix = features_matrix, errors = errors)
+                 # while not converged, update each weight individually:
+                magnitude&lt;-sqrt(t(derivatives)%*%derivatives)
+                weights &lt;- weights-step_size*derivatives
+                if (magnitude&lt;tolerance){
+                converged = T
+        }
+        }
+        weights
+}</code></pre>
+<p>Now we will run the regression_gradient_descent function on some actual data. In particular we will use the gradient descent to estimate the model from Week 1 using just an intercept and slope. Use the following parameters:</p>
+<ul>
+<li>features: ‘sqft_living’</li>
+<li>output: ‘price’</li>
+<li>initial weights: -47000, 1 (intercept, sqft_living respectively)</li>
+<li>step_size = 7e-12</li>
+<li>tolerance = 2.5e7</li>
+</ul>
+<pre class="r"><code>features_matrix&lt;-construct_features_matrix(features = list(&quot;sqft_living&quot;),outputs = list(&quot;price&quot;), data = train_data)
+weights&lt;-regression_gradient_descent(feature_matrix = features_matrix, initial_weights = c(-47000, 1), step_size = 7e-12, tolerance = 2.5e7 )
+round(weights,digits = 2)</code></pre>
+<pre><code>##           [,1]
+## [1,] -46999.89
+## [2,]    281.91</code></pre>
+<p>Compare with the results of lm():</p>
+<pre class="r"><code>multiRegFit&lt;-lm(formula = price~sqft_living, data = train_data)
+summary(multiRegFit)$coefficients</code></pre>
+<pre><code>##                Estimate  Std. Error    t value     Pr(&gt;|t|)
+## (Intercept) -47116.0791 4923.344373  -9.569934 1.209547e-21
+## sqft_living    281.9588    2.164055 130.291922 0.000000e+00</code></pre>
+<p>They seem close enough.</p>
+</div>
+<div id="quiz-question-what-is-the-value-of-the-weight-for-sqft_living-the-second-element-of-simple_weights-rounded-to-1-decimal-place" class="section level5">
+<h5>Quiz Question: What is the value of the weight for sqft_living – the second element of ‘simple_weights’ (rounded to 1 decimal place)?</h5>
+<p>It is 281.9</p>
+<p><em>Now build a corresponding ‘test_simple_feature_matrix’ and ‘test_output’ using test_data. Using ‘test_simple_feature_matrix’ and ‘simple_weights’ compute the predicted house prices on all the test data.</em></p>
+<pre class="r"><code>features_matrix&lt;-construct_features_matrix(features = list(&quot;sqft_living&quot;),outputs = list(&quot;price&quot;), data = test_data)
+prices&lt;-features_matrix[[1]]%*%weights</code></pre>
+</div>
+<div id="quiz-question-what-is-the-predicted-price-for-the-1st-house-in-the-test-data-set-for-model-1-round-to-nearest-dollar" class="section level5">
+<h5>Quiz Question: What is the predicted price for the 1st house in the Test data set for model 1 (round to nearest dollar)?</h5>
+<pre class="r"><code>prices[1]</code></pre>
+<pre><code>## [1] 356134.4</code></pre>
+<p><em>Now compute RSS on all test data for this model. Record the value and store it for later</em></p>
+<pre class="r"><code>epsilon&lt;- features_matrix[[2]]-prices
+RSS1&lt;-sum(epsilon^2)
+sum(resid(multiRegFit)^2)</code></pre>
+<pre><code>## [1] 1.201918e+15</code></pre>
+<p><em>Now we will use the gradient descent to fit a model with more than 1 predictor variable (and an intercept). Use the following parameters:</em></p>
+<pre class="r"><code>features_matrix&lt;-construct_features_matrix(features = list(&quot;sqft_living&quot;, &quot;sqft_living15&quot;),outputs = list(&quot;price&quot;), data = train_data)
+weights&lt;-regression_gradient_descent(feature_matrix = features_matrix, initial_weights = c(-100000, 1, 1), step_size = 4e-12, tolerance = 1e9)</code></pre>
+<p><em>Use the regression weights from this second model (using sqft_living and sqft_living_15) and predict the outcome of all the house prices on the TEST data.</em></p>
+<pre class="r"><code>features_matrix&lt;-construct_features_matrix(features = list(&quot;sqft_living&quot;, &quot;sqft_living15&quot;),outputs = list(&quot;price&quot;), data = test_data)
+prices&lt;-features_matrix[[1]]%*%weights</code></pre>
+</div>
+<div id="quiz-question-what-is-the-predicted-price-for-the-1st-house-in-the-test-data-set-for-model-2-round-to-nearest-dollar" class="section level5">
+<h5>Quiz Question: What is the predicted price for the 1st house in the TEST data set for model 2 (round to nearest dollar)?</h5>
+<pre class="r"><code>round(prices[1],0)</code></pre>
+<pre><code>## [1] 366651</code></pre>
+<p><em>What is the actual price for the 1st house in the Test data set?</em></p>
+<pre class="r"><code>features_matrix[[2]][1,]</code></pre>
+<pre><code>## [1] 310000</code></pre>
+</div>
+<div id="quiz-question-which-model-1-or-2-has-lowest-rss-on-all-of-the-test-data" class="section level5">
+<h5>Quiz question: Which model (1 or 2) has lowest RSS on all of the TEST data?</h5>
+<pre class="r"><code>epsilon&lt;- features_matrix[[2]]-prices
+RSS2&lt;-sum(epsilon^2)
+c(RSS1, RSS2)</code></pre>
+<pre><code>## [1] 2.754000e+14 2.702634e+14</code></pre>
+</div>
 </div>
 
 
