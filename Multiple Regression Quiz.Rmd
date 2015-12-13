@@ -5,6 +5,7 @@ date: "December 11, 2015"
 output:
   html_document:
     theme: cerulean
+  pdf_document: default
 ---
 
 This is my first attempt to solve the multiple linear regression programming problems in the second week of the Regression module of the ML course. I intend also to to this in python. 
