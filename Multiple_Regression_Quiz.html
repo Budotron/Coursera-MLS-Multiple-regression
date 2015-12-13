@@ -68,7 +68,7 @@ img {
 </div>
 
 
-<p>This is my first attempt to solve the multople linear regression programming problems in the second week of the Regression module of the ML course. I intend also to to this in python.</p>
+<p>This is my first attempt to solve the multiple linear regression programming problems in the second week of the Regression module of the ML course. I intend also to to this in python.</p>
 <div id="obtention-and-cleaning" class="section level4">
 <h4>Obtention and cleaning</h4>
 <p>The data were downloaded from the <a href="https://www.coursera.org/learn/ml-regression/supplement/7xN9c/reading-exploring-different-multiple-regression-models-for-house-price">course website</a> in .csv format, and included in the current working directory.</p>
@@ -192,7 +192,7 @@ model1&lt;-lm(formula = price~sqft_living+bedrooms+bathrooms+lat+long, data = tr
 ## long           -2.942990e+05 1.324578e+04 -22.218326 7.231375e-108
 ## bed_bath_rooms  2.557965e+04 1.953134e+03  13.096723  5.260576e-39</code></pre>
 <p><em>Is the sign for the coefficient the same in both models? Think about why this might be the case.</em></p>
-<p>The signs are different. This may be the effect of the feature <code>bed_bath_rooms</code>, the intercept of which is quite large. Perhaps on thier own, the bedroom and bathroom features have less of an inpact on housing prices than thier product, and so the weight of the effect of the bathroom is reduced in this model.</p>
+<p>The signs are different. This may be the effect of the feature <code>bed_bath_rooms</code>, the intercept of which is quite large. Perhaps on their own, the bedroom and bathroom features have less of an impact on housing prices than their product, and so the weight of the effect of the bathroom is reduced in this model.</p>
 <p><em>Now using your three estimated models compute the RSS (Residual Sum of Squares) on the Training data.</em></p>
 <pre class="r"><code># resid() returns the residuals of the fit model. The RSS is computed with sum(resid()^2)
 RSS1 &lt;- sum(resid(model1)^2)
@@ -226,7 +226,7 @@ all_test_RSS</code></pre>
 <h5>Quiz Question: Which model (1, 2, or 3) had the lowest RSS on TESTING data?</h5>
 <p>This is given by <code>model2</code></p>
 <p><em>Did you get the same answer for 9 and 11? Think about why this might be the case.</em></p>
-<p>The warning message above for <code>model3</code> suggests that it is not full rank: this means that some of the information captured in one feature is also represented in another. It may be the case that <code>model3</code> is overfitting the training data, and so performs less well on the test data.</p>
+<p>The warning message above for <code>model3</code> suggests that it is not full rank: this means that some of the information captured in one feature is also represented in another. It may be the case that <code>model3</code> is over-fitting the training data, and so performs less well on the test data.</p>
 <p><em>Write a function that takes a data set, a list of features (e.g. [‘sqft_living’, ‘bedrooms’]), to be used as inputs, and a name of the output (e.g. ‘price’). This function should return a features_matrix (2D array) consisting of first a column of ones followed by columns containing the values of the input features in the data set in the same order as the input list.</em></p>
 <pre class="r"><code># construct_matrix() accepts as input a list of features, a list of outputs, and a data.frame, and returns a list of the values of the feaures (as entered), and a matrix of the outputs (as entered)
 construct_features_matrix &lt;- function(features, outputs, data){

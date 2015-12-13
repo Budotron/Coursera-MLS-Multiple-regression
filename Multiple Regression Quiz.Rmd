@@ -7,7 +7,7 @@ output:
     theme: cerulean
 ---
 
-This is my first attempt to solve the multople linear regression programming problems in the second week of the Regression module of the ML course. I intend also to to this in python. 
+This is my first attempt to solve the multiple linear regression programming problems in the second week of the Regression module of the ML course. I intend also to to this in python. 
 
 #### Obtention and cleaning
 The data were downloaded from the [course website](https://www.coursera.org/learn/ml-regression/supplement/7xN9c/reading-exploring-different-multiple-regression-models-for-house-price) in .csv format, and included in the current working directory. 
@@ -170,7 +170,7 @@ summary(model2)$coefficients
 
 *Is the sign for the coefficient the same in both models? Think about why this might be the case.*
 
-The signs are different. This may be the effect of the feature ```bed_bath_rooms```, the intercept of which is quite large. Perhaps on thier own, the bedroom and bathroom features have less of an inpact on housing prices than thier product, and so the weight of the effect of the bathroom is reduced in this model. 
+The signs are different. This may be the effect of the feature ```bed_bath_rooms```, the intercept of which is quite large. Perhaps on their own, the bedroom and bathroom features have less of an impact on housing prices than their product, and so the weight of the effect of the bathroom is reduced in this model. 
 
 *Now using your three estimated models compute the RSS (Residual Sum of Squares) on the Training data.*
 
@@ -208,7 +208,7 @@ This is given by ```model2```
 
 *Did you get the same answer for 9 and 11? Think about why this might be the case.*
 
-The warning message above for ```model3``` suggests that it is not full rank: this means that some of the information captured in one feature is also represented in another. It may be the case that ```model3``` is overfitting the training data, and so performs less well on the test data.
+The warning message above for ```model3``` suggests that it is not full rank: this means that some of the information captured in one feature is also represented in another. It may be the case that ```model3``` is over-fitting the training data, and so performs less well on the test data.
 
 *Write a function that takes a data set, a list of features (e.g. [‘sqft_living’, ‘bedrooms’]), to be used as inputs, and a name of the output (e.g. ‘price’). This function should return a features_matrix (2D array) consisting of first a column of ones followed by columns containing the values of the input features in the data set in the same order as the input list.*
 
