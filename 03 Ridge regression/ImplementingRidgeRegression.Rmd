@@ -1,0 +1,438 @@
+---
+title: "Implementing Ridge Regression"
+author: "Varun Boodram"
+date: "December 29, 2015"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+---
+
+
+*In this assignment, you will implement ridge regression via gradient descent. You will:*
+
+* *Convert an SFrame into a Numpy array (if applicable*; it's not*)*
+* *Write a Numpy function to compute the derivative of the regression weights with respect to a single feature*
+* *Write gradient descent function to compute the regression weights given an initial weight vector, step size, tolerance, and L2 penalty*
+
+The data sets for this assignment were downloaded from the links provided. 
+
+```{r, cache=TRUE}
+rm(list = ls())
+setwd("~/Desktop/Coursera-MLS-Multiple-regression/03 Ridge regression")
+# Obtain the full data set, the training and the testing data
+allData <- read.csv(unzip(zipfile="./datasets/kc_house_data.csv.zip"),
+                    header = T, 
+                    sep = ",", 
+                    quote = " ", 
+                    stringsAsFactors = T )
+train_data <- read.csv(unzip(zipfile="./datasets/kc_house_train_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+test_data <- read.csv(unzip(zipfile="./datasets/kc_house_test_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+The data sets were cleaned as usual
+
+```{r, echo=F, cache=TRUE}
+# fix allData
+allData$bathrooms<-as.numeric(allData$bathrooms)
+allData$waterfront<-as.integer(allData$waterfront)
+allData$sqft_above<-as.integer(allData$sqft_above)
+allData$sqft_living15<-as.numeric(allData$sqft_living15)
+allData$grade<-as.integer(allData$grade)
+allData$yr_renovated<-as.integer(allData$yr_renovated)
+allData$price<-as.numeric(allData$price)
+allData$bedrooms<-as.numeric(allData$bedrooms)
+allData$zipcode<-as.character(allData$zipcode)
+allData$long<-as.numeric(allData$long)
+allData$sqft_lot15<-as.numeric(allData$sqft_lot15)
+allData$sqft_living<-as.numeric(allData$sqft_living)
+allData$floors<-as.character(allData$floors)
+allData$condition<-as.integer(allData$condition)
+allData$lat<-as.numeric(allData$lat)
+allData$date<-as.character(allData$date)
+allData$sqft_basement<-as.integer(allData$sqft_basement)
+allData$yr_built<-as.integer(allData$yr_built)
+allData$id<-as.character(allData$id)
+allData$sqft_lot<-as.integer(allData$sqft_lot)
+allData$view<-as.integer(allData$view)
+
+# fix the training data
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-as.character(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.character(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-as.character(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-as.character(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+
+
+# fix the testing data
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-as.character(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.character(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-as.character(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-as.character(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+```
+
+*Next, from Module 2, copy and paste the ```get_numpy_data``` function (or equivalent) that takes a dataframe, a list of features (e.g. ```['sqft_living', 'bedrooms']```), to be used as inputs, and a name of the output (e.g. 'price'). This function returns a 'feature_matrix' (2D array) consisting of first a column of ones followed by columns containing the values of the input features in the data set in the same order as the input list. It also returns an 'output_array' which is an array of the values of the output in the data set (e.g. 'price').*
+
+```{r}
+# construct_matrix() accepts as input a list of features, a list of outputs, and a data.frame, and returns a list of the values of the feaures (as entered), and a matrix of the outputs (as entered)
+construct_features_matrix <- function(features, outputs, data){
+        # convert features input to a list
+        features <- as.list(features)
+        # extract the features data from the data
+        subset_data <- get_output(data, features)
+        # extract what we want to predict from the data
+        subset_outputs <- get_output(data, outputs)
+        # append a vector of ones to the features matrix 
+        features_matrix <- create_matrix(subset_data)
+        IO <- list(features_matrix, subset_outputs)
+        IO
+}
+
+# get_output() subsets the data frame into the inputs provided
+get_output <- function(data, features){
+        output<-matrix(nrow = nrow(data), ncol = length(features))
+        for (i in 1: length(features)){
+               output[,i]<-as.numeric(data[[features[[i]]]])
+        }
+        output
+}
+
+# create_matrix appends a column of 1s to the output of get_output()
+create_matrix <- function(subset_data){
+        length <- nrow(subset_data)
+        concatinated <- cbind(rep(1, length), subset_data)
+        concatinated
+}
+```
+
+
+*Similarly, copy and paste the ```predict_output``` function (or equivalent) from Module 2. This function accepts a 2D array 'feature_matrix' and a 1D array 'weights' and return a 1D array 'predictions'.*
+
+```{r}
+# predict_outputs() takes as inputs a matrix of features, and a weights vector (c()), and returns a vector of predicted outputs
+predict_output <- function(feature_matrix, weights){
+        predictions<-feature_matrix[[1]]%*%weights
+        predictions
+}
+```
+
+*We are now going to move to computing the derivative of the regression cost function. Recall that the cost function is the sum over the data points of the squared difference between an observed output and a predicted output, plus the L2 penalty term.*
+
+```{r, eval=FALSE}
+Cost(w)
+= SUM[ (prediction - output)^2 ]
++ l2_penalty*(w[0]^2 + w[1]^2 + ... + w[k]^2).
+```
+
+*Since the derivative of a sum is the sum of the derivatives, we can take the derivative of the first part (the RSS) as we did in the notebook for the unregularized case in Module 2 and add the derivative of the regularization part. As we saw, the derivative of the RSS with respect to w[i] can be written as:*
+
+```{r, eval=FALSE}
+2*SUM[ error*[feature_i] ]
+```
+
+*The derivative of the regularization term with respect to w[i] is:*
+```{r, eval =FALSE}
+2*l2_penalty*w[i]
+```
+
+*Summing both, we get*
+
+```{r, eval=FALSE}
+2*SUM[ error*[feature_i] ] + 2*l2_penalty*w[i]
+```
+
+*That is, the derivative for the weight for feature i is the sum (over data points) of 2 times the product of the error and the feature itself, plus ```2*l2_penalty*w[i]```.*
+
+
+*Recall that twice the sum of the product of two vectors is just twice the dot product of the two vectors. Therefore the derivative for the weight for feature_i is just two times the dot product between the values of feature_i and the current errors, plus ```2*l2_penalty*w[i]```.*
+
+*With this in mind write the derivative function which computes the derivative of the weight given the value of the feature (over all data points) and the errors (over all data points). To decide when to we are dealing with the constant (so we don't regularize it) we added the extra parameter to the call 'feature_is_constant' which you should set to True when computing the derivative of the constant and False otherwise.*
+
+```{r}
+# predict_outputs() takes as inputs a matrix of features, and a weights vector (c()), and returns a vector of predicted outputs
+predict_output <- function(feature_matrix, weights){
+        predictions<-feature_matrix[[1]]%*%weights
+        predictions
+}
+
+compute_errors<-function(predictions, features_matrix){
+        predictions-features_matrix[[2]]
+}
+
+feature_derivative <-function(features_matrix, errors){
+        2*t(features_matrix[[1]])%*%errors
+}
+```
+
+Okay, the first thing that we need to do is to double check that the above function actually produces the derivatives of the ```features_matrix```
+
+```{r}
+feature_matrix<-construct_features_matrix(
+        features = c("sqft_living",
+                     "bedrooms",
+                     "sqft_basement"
+                     ), 
+        outputs = "price", 
+        data = train_data)
+# the values of the inputs, in the order given, appended to a column of 1s
+head(feature_matrix[[1]])
+# the value of the outputs
+head(feature_matrix[[2]])
+# randomly chosen initial weights, to test the code. The length of this vector must be the same as ncol(feature_matrix[[1]])
+weights<-c(1,2,3,4)
+# the product of the values of the inputs with the weights gives an estimate for the values of the outputs
+predictions<-predict_output(feature_matrix = feature_matrix, 
+                            weights = weights)
+cbind(head(predictions), head(feature_matrix[[2]]))
+# the errors are the difference between the true value and the predicted value
+errors <- compute_errors(predictions = predictions, 
+                         features_matrix = feature_matrix)
+head(errors)
+```
+
+The derivative was computed to be twice the input values times the errors$$\nabla(RSS)=-2H^T(\textbf{y}-H\textbf{w})$$
+
+```{r}
+derivatives <- feature_derivative(
+        features_matrix = feature_matrix, 
+        errors = errors)
+derivatives
+```
+
+Okay, so the next step is to modify the ```feature_derivative()``` function so that it includes ```2*l2_penalty*w[i]```. 
+
+$$\nabla(RSS(\textbf{w})+\lambda \Vert \textbf{w} \Vert_2^2)=-2H^T(\textbf{y}-H\textbf{w})+2\lambda\textbf{w}$$
+
+```{r}
+# randomly chosen lambda
+lambda<-10
+2*lambda*weights
+check<-derivatives+2*lambda*weights
+feature_derivative <-function(features_matrix, 
+                              errors, 
+                              weight, 
+                              lambda){
+        2*t(features_matrix[[1]])%*%errors+2*lambda*weights
+}
+derivatives <- feature_derivative(features_matrix = feature_matrix, errors = errors, weight = weights, lambda = lambda)
+cbind(check, derivatives)
+```
+
+The last thing to do is to add this ```feature_is_constant``` paramater to ```feature_derivative()```. The constant feature is the first parameter, $\textbf{h}_0(\textbf{x})$. 
+
+```{r}
+feature_derivative <-function(features_matrix, 
+                              errors, 
+                              weights, 
+                              lambda, 
+                              feature_is_constant){
+  if (feature_is_constant==T){
+    identity <- diag(length(weights))
+  }else{
+    identity<-diag(length(weights))
+    identity[1,1]<-0
+  }
+        2*t(features_matrix[[1]])%*%errors+2*lambda*identity%*%weights
+}
+```
+
+*Now we will write a function that performs a gradient descent. The basic premise is simple. Given a starting point we update the current weights by moving in the negative gradient direction. Recall that the gradient is the direction of increase and therefore the negative gradient is the direction of decrease and we're trying to minimize a cost function.*
+
+*The amount by which we move in the negative gradient direction is called the 'step size'. We stop when we are 'sufficiently close' to the optimum. Unlike in Module 2, this time we will set a maximum number of iterations and take gradient steps until we reach this maximum number. If no maximum number is supplied, the maximum should be set 100 by default. (Use default parameter values in Python.)*
+
+*With this in mind, write a gradient descent function using your derivative function above. For each step in the gradient descent, we update the weight for each feature before computing our stopping criteria. The function will take the following parameters:*
+
+* 2D feature matrix
+* array of output values
+* initial weights
+* step size
+* L2 penalty
+* maximum number of iterations
+
+
+```{r}
+# Construct the feature matrix we will use
+feature_matrix <- construct_features_matrix(features = c("sqft_living"), outputs = "price", data = train_data)
+```
+```{r}
+# implement gradient descent for ridge regression
+ridge_regression_gradient_descent<-function(feature_matrix,
+                                            output, 
+                                            initial_weights, 
+                                            step_size, 
+                                            lambda,
+                                            max_iterations=100){
+  weights <- initial_weights
+  i<-0
+  while(i != max_iterations){
+    predictions <- predict_output(feature_matrix = feature_matrix,
+                                  weights = weights)
+    errors <-compute_errors(
+      predictions = predictions,
+      features_matrix = feature_matrix
+      )
+    derivatives <- feature_derivative(features_matrix = feature_matrix,
+                                      errors = errors,
+                                      weights = weights, 
+                                      lambda = lambda,
+                                      feature_is_constant = T)
+    weights <- weights-step_size*derivatives
+    i <- i+1
+  }
+  weights
+}
+```
+
+*First, let's consider no regularization. Set the L2 penalty to 0.0 and run your ridge regression algorithm to learn the weights of the simple model (described above). Use the following parameters:*
+
+* step_size = 1e-12
+* max_iterations = 1000
+* initial_weights = all zeros
+
+```{r}
+simple_weights_0_penalty <-ridge_regression_gradient_descent(
+  feature_matrix = feature_matrix,
+  output = "price", 
+  initial_weights = rep(0,
+                        ncol(feature_matrix[[1]])), 
+  step_size = 1e-12, 
+  max_iterations = 1000, 
+  lambda = 0)
+```
+
+*Next, let's consider high regularization. Set the L2 penalty to 1e11 and run your ridge regression to learn the weights of the simple model. Use the same parameters as above.*
+
+
+```{r}
+simple_weights_high_penalty <- ridge_regression_gradient_descent(
+  feature_matrix = feature_matrix,
+  output = "price", 
+  initial_weights = rep(0,
+                        ncol(feature_matrix[[1]])), 
+  step_size = 1e-12, 
+  max_iterations = 1000, 
+  lambda = 1e11 )
+```
+*If you do not have access to matplotlib, look at each set of coefficients. If you were to plot 'sqft_living' vs the price, which of the two coefficients is the slope and which is the intercept?*
+
+```{r}
+cbind(simple_weights_0_penalty, simple_weights_high_penalty)
+```
+
+The first row is the row of intercepts, and the second is the row of slopes
+
+#####Quiz Question: 
+What is the value of the coefficient for sqft_living that you learned with no regularization, rounded to 1 decimal place? What about the one with high regularization?
+
+The one with no regularization is `r round(simple_weights_0_penalty[2],1)`, and the one with high regularization is `r round(simple_weights_high_penalty[2],1)`
+
+#####Quiz Question:
+Comparing the lines you fit with the with no regularization versus high regularization, which one is steeper?
+
+Tried to plot the fits; failed. But the first fit should have a very shallow negative slope, and the second a steeper negative slope
+
+#####Using the weights learned with high regularization (l2_penalty=1e11), make predictions for the TEST data. In which of the following ranges does the TEST error (RSS) fall?
+
+```{r}
+feature_matrix <- construct_features_matrix(features = c("sqft_living"), outputs = "price", data = test_data)
+predictions<-feature_matrix[[1]]%*%simple_weights_high_penalty
+sum((feature_matrix[[2]]-predictions)^2)
+```
+
+
+
+```{r}
+# Construct the feature matrix we will use
+feature_matrix <- construct_features_matrix(features = c("sqft_living", "sqft_living15"), outputs = "price", data = train_data)
+multiple_weights_0_penalty <-ridge_regression_gradient_descent(
+  feature_matrix = feature_matrix,
+  output = "price", 
+  initial_weights = rep(0,
+                        ncol(feature_matrix[[1]])), 
+  step_size = 1e-12, 
+  max_iterations = 1000, 
+  lambda= 0)
+multiple_weights_high_penalty <- ridge_regression_gradient_descent(
+  feature_matrix = feature_matrix,
+  output = "price", 
+  initial_weights = rep(0,
+                        ncol(feature_matrix[[1]])), 
+  step_size = 1e-12, 
+  max_iterations = 1000, 
+  lambda = 1e11 )
+```
+
+##### What is the value of the coefficient for sqft_living that you learned with no regularization, rounded to 1 decimal place? Use American-style decimals (e.g. 30.5).
+
+```{r}
+cbind(multiple_weights_0_penalty, multiple_weights_high_penalty)
+```
+
+The one with no regularization is `r round(multiple_weights_0_penalty[2],1)`
+
+##### What is the value of the coefficient for sqft_living that you learned with high regularization (l2_penalty=1e11)? Use American-style decimals (e.g. 30.5) and round your answer to 1 decimal place.
+
+The one with no regularization is `r round(multiple_weights_high_penalty[2],1)`
+
+#####Using all zero weights, make predictions for the TEST data. In which of the following ranges does the TEST error (RSS) fall?
+
+```{r}
+feature_matrix <- construct_features_matrix(
+        features = c("sqft_living", "sqft_living15"), 
+        outputs = "price", 
+        data = test_data)
+predictions<-feature_matrix[[1]]%*%multiple_weights_0_penalty
+sum((feature_matrix[[2]]-predictions)^2)
+```
+
+##### Predict the price of the first house in the test set using the weights learned with no regularization. Do the same using the weights learned with high regularization. Which weights make better prediction for the first house in the test set?
+
+```{r}
+first <- head(feature_matrix[[1]], 1)
+unpenalized_predictions <- first%*%multiple_weights_0_penalty
+penalized_predictions <- first %*% multiple_weights_high_penalty
+c(head(feature_matrix[[2]],1), unpenalized_predictions, penalized_predictions)
+abs(unpenalized_predictions-head(feature_matrix[[2]],1))
+abs(penalized_predictions- head(feature_matrix[[2]],1))
+```

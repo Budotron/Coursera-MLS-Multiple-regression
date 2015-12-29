@@ -1,0 +1,168 @@
+---
+title: "The problem of Overfitting"
+author: "Varun Boodram"
+date: "December 28, 2015"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+---
+
+Low complexity models have high bias, and high complexity models have low variance. 
+We want to automatically discover the  point that gives the best bias-variance trade-off. 
+
+Often overfitting is assosciated with large values of $\hat{w}$. To see this, we simulate 30 points of data drawn from the sinusoid function $y=sin(4x)$ 
+
+```{r}
+rm(list = ls())
+set.seed(98013)
+# create a random sample of 30 numbers in the interval [0,1)
+x <- sort(runif(n = 30, min = 0, max = 1))
+# evaluate y at each point x
+y <- sin(4*x)
+# add noise
+e <- rnorm(30, 0, 1/3)
+y <- y+e
+# put into a data frame
+data <- data.frame(x, y)
+# visualise the data
+plot(x = x, y = y, pch =20)
+lines(x = x, y <- sin(4*x))
+```
+
+The true trend is of course, the sin function, and the black dots are the observed values. 
+
+
+##### Define some useful polynomial regression functions. 
+
+We define a function to create feautres for polynomial regression models of any degree. 
+
+```{r}
+## poly_dataframe() accepts as input a data frame, a feature (the name of a single column in that data frame, wrapped in " "), and a degree, and returns a data frame whose consecutive columns are powers of the values of the feature, in increasing order up to the value of the entered degree
+poly_dataframe <- function(dataframe, output, feature, degree){
+        poly <- matrix(nrow = nrow(dataframe), ncol = degree)
+        names<-vector()
+        if (degree == 1){
+                poly[,1] <- dataframe[[feature]]
+                poly <- as.data.frame(poly)
+                colnames(poly) <- "power_1"
+        } else {
+                columns <- vector()
+                for (i in 1: degree){
+                        names[i] <- paste("power_", i, sep = "")
+                        poly[, i] <- dataframe[[feature]]^i
+                        poly <- as.data.frame(poly)
+                        colnames(poly) <- names
+                        }
+        }
+        poly <-cbind(dataframe[[output]], poly)
+        colnames(poly)[1]<-"output"
+        poly
+}
+```
+
+Define a function to fit a polynomial linear regression model to the degree in data
+
+```{r}
+polyfit<-function(dataframe, output, feature, degree){
+  data <- poly_dataframe(dataframe = dataframe, 
+                         output = output, 
+                         feature = feature, 
+                         degree = degree)
+  fit <- lm(formula = output~., data = data)
+  plot(x = data$power_1, 
+       y = data$output, 
+       pch=20, 
+       xlab = "x", 
+       ylab = "y", 
+       main = paste("Degree", degree, "fit"))
+  lines(x = x, y <- sin(4*x))
+  points(dataframe[[feature]], 
+         fitted(fit), 
+         type ="l", 
+         col ="red", 
+         lwd =3)
+  print(fit$coefficients)
+}
+```
+
+##### Fit polynomials of differing degrees and examine the coefficients
+```{r}
+polyfit(dataframe = data, output = "y", feature = "x", degree = 2)
+```
+
+The slopes and intercepts are numbers that we can easily understand: they are relatively small. 
+
+```{r}
+polyfit(dataframe = data, output = "y", feature = "x", degree = 4 )
+```
+
+Either because the ```lm()``` library is optimized to handle situations like this, or because the inital conditions of my plot were different from those in the lecture, the increase in the coefficients is not as dramatic as it is in the demo. 
+
+```{r}
+polyfit(dataframe = data, output = "y", feature = "x", degree = 16 )
+```
+
+At this point we can see the effects on the coefficients clearly. They are now on the order of $10^6$, and the resulting curve is too wiggly to be seriously considered as representing the underlying true relationship.
+
+Ridge regression will quantify overfitting through a measure of the absolute values of the coefficients. 
+
+##### Overfitting of linear models more generically
+
+Overfitting is not specific to polynomial regression, but is something that we often observe in more complex models, such as when we have lots of inputs. If we fit a model for house prices on a large number of inputs (# bathrooms, # bedrooms, lot size, year built, etc), the resulting model has a lot of flexibility  to explain the output. 
+
+Or more generically, we can say that if we have lots of features, a large $D$ in the expression 
+$$y_i=\Sigma_{i=1}^D \textbf{w}_jh_j(\textbf{x}_i)+\epsilon_i$$
+
+that is, when we have lots of functions of our inputs, the model is subject to becomming overfit. 
+
+Ridge Regression aims to avoid overfitting by adding a cost to the RSS term of standard least squares that depends on the 2-norm of the of the coefficients, $\Vert w \Vert_2^2$. The result is penalizing fits with large coefficients. The strength of this penalty, and hence the fit vs. model complexity is is controlled by the parameter $\lambda$. 
+
+```{r}
+library(ridge)
+ridgefit<-function(dataframe, output, feature, degree, l2_penalty){
+  data <- poly_dataframe(dataframe = dataframe, 
+                         output = output, 
+                         feature = feature, 
+                         degree = degree)
+  fit <- linearRidge(formula = output~., data = data, lambda = l2_penalty)
+  plot(x = data$power_1, 
+       y = data$output, 
+       pch=20, 
+       xlab = "x", 
+       ylab = "y", 
+       main = paste("Degree", degree, "fit"))
+  lines(x = x, y <- sin(4*x))
+  points(dataframe[[feature]], 
+         predict(fit), 
+         type ="l", 
+         col ="red", 
+         lwd =3)
+  print(coef(fit))
+}
+```
+
+With a very small penalty: we expect the plot to look just like the least squares case
+
+```{r}
+ridgefit(dataframe = data, output = "y", feature = "x", degree = 16, l2_penalty = 1e-25)
+```
+
+which we don't really see. The overall shape is the same, but the ridge plot is waaay more spiky. However, the coefficeints are as massive as before. 
+
+With a very large penalty:
+```{r}
+ridgefit(dataframe = data, output = "y", feature = "x", degree = 16, l2_penalty = 100)
+```
+
+The coefficients are very, very small. The fit is a really, really smooth curve, which is really way too simple a description of what is going on in the data (it is underfit).
+
+Plotting the resluting fit over a variety of $\lambda$s:
+
+```{r}
+penalties <-c(1e-25, 1e-10, 1e-6, 1e-3, 1e2)
+for (i in 1: length(penalties)){
+  l2_penalty<-penalties[i]
+  ridgefit(dataframe = data, output = "y", feature = "x", degree = 16, l2_penalty = l2_penalty)
+}
+```

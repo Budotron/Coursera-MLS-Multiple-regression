@@ -1,0 +1,529 @@
+---
+title: "Ridge Regression: Exploring $L2$ Penalties"
+author: "Varun Boodram"
+date: "December 28, 2015"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+---
+
+*Copy and paste an equivalent of ‘polynomial_sframe’ function from Module 3 (Polynomial Regression). This function accepts an array ‘feature’ (of type pandas.Series) and a maximal ‘degree’ and returns an data frame (of type pandas.DataFrame) with the first column equal to ‘feature’ and the remaining columns equal to ‘feature’ to increasing integer powers up to ‘degree’.*
+
+
+```{r}
+## poly_dataframe() accepts as input a data frame, a feature (the name of a single column in that data frame, wrapped in " "), and a degree, and returns a data frame whose consecutive columns are powers of the values of the feature, in increasing order up to the value of the entered degree
+poly_dataframe <- function(dataframe, output, feature, degree){
+        poly <- matrix(nrow = nrow(dataframe), ncol = degree)
+        names<-vector()
+        if (degree == 1){
+                poly[,1] <- dataframe[[feature]]
+                poly <- as.data.frame(poly)
+                colnames(poly) <- "power_1"
+        } else {
+                columns <- vector()
+                for (i in 1: degree){
+                        names[i] <- paste("power_", i, sep = "")
+                        poly[, i] <- dataframe[[feature]]^i
+                        poly <- as.data.frame(poly)
+                        colnames(poly) <- names
+                        }
+        }
+        poly <-cbind(dataframe[[output]], poly)
+        colnames(poly)[1]<-"output"
+        poly
+}
+```
+
+*For the remainder of the assignment we will be working with the house Sales data as in Module 3 (Polynomial Regression). Load in the data and also sort the sales data frame by ‘sqft_living’. When we plot the fitted values we want to join them up in a line and this works best if the variable on the X-axis (which will be ‘sqft_living’) is sorted. For houses with identical square footage, we break the tie by their prices.*
+
+The data were downloaded from the assignment webpage and stored in the current working directory.
+
+```{r, cache=TRUE, echo=FALSE}
+setwd("~/Desktop/Coursera-MLS-Multiple-regression/03 Ridge regression")
+train_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_train_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+test_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_test_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+The classes of each column in both data sets were adjusted to reflect the classes needed for this assignment
+
+```{r, echo=FALSE, cache=TRUE}
+# fix the training data
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-as.character(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.character(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-as.character(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-as.character(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+
+
+# fix the testing data
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-as.character(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.character(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-as.character(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-as.character(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+```
+
+The function ```tie_Break()``` sorts the data in ascending value of an input feature, breaking ties between the same input value with ascending values of the desired output. 
+
+```{r}
+tie_Break <- function(dataframe, feature, output){
+         dataframe<-dataframe[with(dataframe, order(dataframe[[feature]], dataframe[[output]])),]
+         dataframe
+}
+```
+
+
+*Let us revisit the 15th-order polynomial model using the 'sqft_living' input. Generate polynomial features up to degree 15 using `polynomial_sframe()` and fit a model with these features. When fitting the model, use an L2 penalty of 1.5e-5:*
+
+```{r}
+library(ridge)
+data<-poly_dataframe(dataframe = train_data, 
+                     output = "price",
+                     feature = "sqft_living", 
+                     degree = 15)
+fit<-linearRidge(formula = output~., data = data, lambda = 1.5e-5)
+```
+
+##### Quiz Question: 
+*What’s the learned value for the coefficient of feature power_1?*
+
+```{r}
+coef(fit)[2]
+```
+
+We also want to observe the plot of the predictions
+
+```{r}
+ plot(x = data$power_1, 
+       y = data$output, 
+       pch=20, 
+       xlab = "x", 
+       ylab = "y", 
+       main = paste("Degree", 15, "fit"))
+ points(data$power_1, 
+         predict(fit), 
+         type ="l", 
+         col ="red", 
+         lwd =3)
+```
+
+*Recall from Module 3 (Polynomial Regression) that the polynomial fit of degree 15 changed wildly whenever the data changed. In particular, when we split the sales data into four subsets and fit the model of degree 15, the result came out to be very different for each subset. The model had a high variance. We will see in a moment that ridge regression reduces such variance. But first, we must reproduce the experiment we did in Module 3.*
+
+*For this section, please download the provided csv files for each subset and load them with the given list of types:*
+
+```{r}
+subset1 <-read.csv(unzip(zipfile="./datasets/wk3_kc_house_set_1_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+subset2 <-read.csv(unzip(zipfile="./datasets/wk3_kc_house_set_2_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+subset3 <-read.csv(unzip(zipfile="./datasets/wk3_kc_house_set_3_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+subset4 <-read.csv(unzip(zipfile="./datasets/wk3_kc_house_set_4_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+
+```{r, echo = FALSE}
+subset1$bathrooms<-as.numeric(subset1$bathrooms)
+subset1$waterfront<-as.integer(subset1$waterfront)
+subset1$sqft_above<-as.integer(subset1$sqft_above)
+subset1$sqft_living15<-as.numeric(subset1$sqft_living15)
+subset1$grade<-as.integer(subset1$grade)
+subset1$yr_renovated<-as.integer(subset1$yr_renovated)
+subset1$price<-as.numeric(subset1$price)
+subset1$bedrooms<-as.numeric(subset1$bedrooms)
+subset1$zipcode<-as.character(subset1$zipcode)
+subset1$long<-as.numeric(subset1$long)
+subset1$sqft_lot15<-as.numeric(subset1$sqft_lot15)
+subset1$sqft_living<-as.numeric(subset1$sqft_living)
+subset1$floors<-as.character(subset1$floors)
+subset1$condition<-as.integer(subset1$condition)
+subset1$lat<-as.numeric(subset1$lat)
+subset1$date<-as.character(subset1$date)
+subset1$sqft_basement<-as.integer(subset1$sqft_basement)
+subset1$yr_built<-as.integer(subset1$yr_built)
+subset1$id<-as.character(subset1$id)
+subset1$sqft_lot<-as.integer(subset1$sqft_lot)
+subset1$view<-as.integer(subset1$view)
+
+subset2$bathrooms<-as.numeric(subset2$bathrooms)
+subset2$waterfront<-as.integer(subset2$waterfront)
+subset2$sqft_above<-as.integer(subset2$sqft_above)
+subset2$sqft_living15<-as.numeric(subset2$sqft_living15)
+subset2$grade<-as.integer(subset2$grade)
+subset2$yr_renovated<-as.integer(subset2$yr_renovated)
+subset2$price<-as.numeric(subset2$price)
+subset2$bedrooms<-as.numeric(subset2$bedrooms)
+subset2$zipcode<-as.character(subset2$zipcode)
+subset2$long<-as.numeric(subset2$long)
+subset2$sqft_lot15<-as.numeric(subset2$sqft_lot15)
+subset2$sqft_living<-as.numeric(subset2$sqft_living)
+subset2$floors<-as.character(subset2$floors)
+subset2$condition<-as.integer(subset2$condition)
+subset2$lat<-as.numeric(subset2$lat)
+subset2$date<-as.character(subset2$date)
+subset2$sqft_basement<-as.integer(subset2$sqft_basement)
+subset2$yr_built<-as.integer(subset2$yr_built)
+subset2$id<-as.character(subset2$id)
+subset2$sqft_lot<-as.integer(subset2$sqft_lot)
+subset2$view<-as.integer(subset2$view)
+
+subset3$bathrooms<-as.numeric(subset3$bathrooms)
+subset3$waterfront<-as.integer(subset3$waterfront)
+subset3$sqft_above<-as.integer(subset3$sqft_above)
+subset3$sqft_living15<-as.numeric(subset3$sqft_living15)
+subset3$grade<-as.integer(subset3$grade)
+subset3$yr_renovated<-as.integer(subset3$yr_renovated)
+subset3$price<-as.numeric(subset3$price)
+subset3$bedrooms<-as.numeric(subset3$bedrooms)
+subset3$zipcode<-as.character(subset3$zipcode)
+subset3$long<-as.numeric(subset3$long)
+subset3$sqft_lot15<-as.numeric(subset3$sqft_lot15)
+subset3$sqft_living<-as.numeric(subset3$sqft_living)
+subset3$floors<-as.character(subset3$floors)
+subset3$condition<-as.integer(subset3$condition)
+subset3$lat<-as.numeric(subset3$lat)
+subset3$date<-as.character(subset3$date)
+subset3$sqft_basement<-as.integer(subset3$sqft_basement)
+subset3$yr_built<-as.integer(subset3$yr_built)
+subset3$id<-as.character(subset3$id)
+subset3$sqft_lot<-as.integer(subset3$sqft_lot)
+subset3$view<-as.integer(subset3$view)
+
+subset4$bathrooms<-as.numeric(subset4$bathrooms)
+subset4$waterfront<-as.integer(subset4$waterfront)
+subset4$sqft_above<-as.integer(subset4$sqft_above)
+subset4$sqft_living15<-as.numeric(subset4$sqft_living15)
+subset4$grade<-as.integer(subset4$grade)
+subset4$yr_renovated<-as.integer(subset4$yr_renovated)
+subset4$price<-as.numeric(subset4$price)
+subset4$bedrooms<-as.numeric(subset4$bedrooms)
+subset4$zipcode<-as.character(subset4$zipcode)
+subset4$long<-as.numeric(subset4$long)
+subset4$sqft_lot15<-as.numeric(subset4$sqft_lot15)
+subset4$sqft_living<-as.numeric(subset4$sqft_living)
+subset4$floors<-as.character(subset4$floors)
+subset4$condition<-as.integer(subset4$condition)
+subset4$lat<-as.numeric(subset4$lat)
+subset4$date<-as.character(subset4$date)
+subset4$sqft_basement<-as.integer(subset4$sqft_basement)
+subset4$yr_built<-as.integer(subset4$yr_built)
+subset4$id<-as.character(subset4$id)
+subset4$sqft_lot<-as.integer(subset4$sqft_lot)
+subset4$view<-as.integer(subset4$view)
+```
+
+*Just as we did in Module 3 (Polynomial Regression), fit a 15th degree polynomial on each of the 4 sets, plot the results and view the weights for the four models. This time, set ```l2_small_penalty=1e-9```*
+
+
+*The four curves should differ from one another a lot, as should the coefficients you learned.*
+
+```{r}
+ridgefit<-function(dataframe, output, feature, degree, l2_penalty){
+        data <- poly_dataframe(dataframe = dataframe, 
+                               output = output, 
+                               feature = feature, 
+                               degree = degree)
+        fit <- linearRidge(formula = output~., 
+                           data = data, 
+                           lambda = l2_penalty)
+        plot(x = data$power_1, 
+             y = data$output, 
+             pch=20, 
+             xlab = "Square feet", 
+             ylab = "Price", 
+             main = paste("Degree", degree, "ridge regression fit with penalty ", l2_penalty))
+        points(data$power_1, 
+               predict(fit), 
+               type ="l", 
+               col ="red", 
+               lwd =3)
+        coef(fit)
+}
+
+coeffs1 <- ridgefit(dataframe = tie_Break(dataframe = subset1, 
+                               feature = "sqft_living", 
+                               output = "price"),                  
+          output = "price", 
+          feature = "sqft_living", 
+          degree = 15, 
+          l2_penalty = 1e-9)
+coeffs2 <- ridgefit(dataframe = tie_Break(dataframe = subset2, 
+                               feature = "sqft_living", 
+                               output = "price"), 
+         output = "price", 
+         feature = "sqft_living", 
+         degree = 15, 
+         l2_penalty = 1e-9)
+coeffs3 <- ridgefit(dataframe = tie_Break(dataframe = subset3, 
+                               feature = "sqft_living", 
+                               output = "price"), 
+         output = "price", 
+         feature = "sqft_living", 
+         degree = 15, 
+         l2_penalty = 1e-9)
+coeffs4 <- ridgefit(dataframe = tie_Break(dataframe = subset4, 
+                               feature = "sqft_living", 
+                               output = "price"), 
+         output = "price", 
+         feature = "sqft_living", 
+         degree = 15, 
+         l2_penalty = 1e-9)
+```
+
+*Quiz Question: For the models learned in each of these training sets, what are the smallest and largest values you learned for the coefficient of feature power_1? (For the purpose of answering this question, negative numbers are considered "smaller" than positive numbers. So -5 is smaller than -3, and -3 is smaller than 5 and so forth.)*
+
+```{r}
+coeffs <- data.frame(coeffs1, coeffs2, coeffs3, coeffs4)
+coeffs[2,]
+min(coeffs[2,])
+max(coeffs[2,])
+```
+
+*Generally, whenever we see weights change so much in response to change in data, we believe the variance of our estimate to be large. Ridge regression aims to address this issue by penalizing "large" weights. (The weights looked quite small, but they are not that small because 'sqft_living' input is in the order of thousands.)*
+
+*Fit a 15th-order polynomial model on set_1, set_2, set_3, and set_4, this time with a large L2 penalty. Make sure to add "alpha=l2_large_penalty" and "normalize=True" to the parameter list, where the value of l2_large_penalty is given by ```l2_large_penalty=1.23e2```*
+
+```{r}
+coeffs1 <- ridgefit(dataframe = tie_Break(dataframe = subset1, 
+                               feature = "sqft_living", 
+                               output = "price"),                  
+          output = "price", 
+          feature = "sqft_living", 
+          degree = 15, 
+          l2_penalty = 1.23e2)
+coeffs2 <- ridgefit(dataframe = tie_Break(dataframe = subset2, 
+                               feature = "sqft_living", 
+                               output = "price"), 
+         output = "price", 
+         feature = "sqft_living", 
+         degree = 15, 
+         l2_penalty = 1.23e2)
+coeffs3 <- ridgefit(dataframe = tie_Break(dataframe = subset3, 
+                               feature = "sqft_living", 
+                               output = "price"), 
+         output = "price", 
+         feature = "sqft_living", 
+         degree = 15, 
+         l2_penalty = 1.23e2)
+coeffs4 <- ridgefit(dataframe = tie_Break(dataframe = subset4, 
+                               feature = "sqft_living", 
+                               output = "price"), 
+         output = "price", 
+         feature = "sqft_living", 
+         degree = 15, 
+         l2_penalty = 1.23e2)
+```
+
+##### QUIZ QUESTION: 
+*For the models learned with regularization in each of these training sets, what are the smallest and largest values you learned for the coefficient of feature power_1? (For the purpose of answering this question, negative numbers are considered "smaller" than positive numbers. So -5 is smaller than -3, and -3 is smaller than 5 and so forth.)*
+
+```{r}
+coeffs <- data.frame(coeffs1, coeffs2, coeffs3, coeffs4)
+coeffs[2,]
+min(coeffs[2,])
+max(coeffs[2,])
+```
+
+##### Selecting an L2 penalty via cross-validation
+
+*Just like the polynomial degree, the L2 penalty is a "magic" parameter we need to select. We could use the validation set approach as we did in the last module, but that approach has a major disadvantage: it leaves fewer observations available for training. Cross-validation seeks to overcome this issue by using all of the training set in a smart way.*
+
+*We will implement a kind of cross-validation called k-fold cross-validation. The method gets its name because it involves dividing the training set into k segments of roughtly equal size. Similar to the validation set method, we measure the validation error with one of the segments designated as the validation set. The major difference is that we repeat the process k times as follows:*
+
+* *Set aside segment 0 as the validation set, and fit a model on rest of data, and evalutate it on this validation set*
+* *Set aside segment 1 as the validation set, and fit a model on rest of data, and evalutate it on this validation set*
+* ...
+* *Set aside segment k-1 as the validation set, and fit a model on rest of data, and evalutate it on this validation set*
+
+*After this process, we compute the average of the k validation errors, and use it as an estimate of the generalization error. Notice that all observations are used for both training and validation, as we iterate over segments of data.*
+
+*To estimate the generalization error well, it is crucial to shuffle the training data before dividing them into segments. We reserve 10% of the data as the test set and randomly shuffle the remainder. Le'ts call the shuffled data 'train_valid_shuffled'.*
+
+*For the purpose of this assignment, let us download the csv file containing pre-shuffled rows of training and validation sets combined: wk3_kc_house_train_valid_shuffled.csv. In practice, you would shuffle the rows with a dynamically determined random seed.*
+
+```{r}
+shuffled <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_train_valid_shuffled.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+_Divide the combined training and validation set into equal segments. Each segment should receive n/k elements, where n is the number of observations in the training set and k is the number of segments. Since the segment 0 starts at index 0 and contains n/k elements, it ends at index (n/k)-1. The segment 1 starts where the segment 0 left off, at index (n/k). With n/k elements, the segment 1 ends at index (n*2/k)-1. Continuing in this fashion, we deduce that the segment i starts at index (n*i/k) and ends at (n*(i+1)/k)-1._
+
+*With this pattern in mind, we write a short loop that prints the starting and ending indices of each segment, just to make sure you are getting the splits right.*
+
+```{r}
+n <- nrow(shuffled)
+k <- 10
+for (i in 1:k){
+  start <- ceiling((n*(i-1))/k)
+  end <- floor((n*i)/k)
+  print(c(i, start, end))
+}
+```
+
+To get the $i$th slice, 
+
+```{r}
+i<-1
+n <- nrow(shuffled)
+k <- 10
+for (i in 1:k){
+slice_i<-shuffled[(start:end), ]
+#and everything else is obtained with 
+not_slice_i<-shuffled[-(start:end), ]
+#which can be verified with 
+print(dim(shuffled)-dim(not_slice_i))
+}
+```
+
+
+*Now we are ready to implement k-fold cross-validation. Write a function that computes k validation errors by designating each of the k segments as the validation set. It accepts as parameters (i) k, (ii) l2_penalty, (iii) dataframe containing input features (e.g. poly15_data) and (iv) column of output values (e.g. price). The function returns the average validation error using k segments as validation sets. We shall assume that the input dataframe does not contain the output column.*
+
+*For each i in [0, 1, ... k-1]:*
+
+* *Compute starting and ending indices of segment i and call 'start' and 'end'*
+* *Form validation set by taking a slice (start:end+1) from the data.
+Form training set by appending slice (end+1:n) to the end of slice (0:start).*
+* *Train a linear model using training set just formed, with a given l2_penalty*
+* *Compute validation error (RSS) using validation set just formed*
+
+```{r}
+k_fold_cross_validation <- function(k, l2_penalty, dataframe, output){
+  n <- nrow(dataframe)
+  for (i in 1:k){ 
+    start <- ceiling((n*(i-1))/k)
+    end <- floor((n*i)/k)
+    print(c(i, start, end))
+    validation <- dataframe[(start:end), ]
+    test <- dataframe[-(start:end), ]
+    fit<-linearRidge(formula = output~., 
+                     data = test, 
+                     lambda = l2_penalty)
+    preds<-predict(object = fit, newdata = validation)
+    sum((preds-validation[,1])^2)
+    }
+}
+
+```
+
+
+*Once we have a function to compute the average validation error for a model, we can write a loop to find the model that minimizes the average validation error. Write a loop that does the following:*
+
+* *We will again be aiming to fit a 15th-order polynomial model using the sqft_living input*
+* *For each l2_penalty in [10^3, 10^3.5, 10^4, 10^4.5, ..., 10^9] (to get this in Python, you can use this Numpy function: np.logspace(3, 9, num=13).): Run 10-fold cross-validation with l2_penalty.*
+* *Report which L2 penalty produced the lowest average validation error.*
+*Note: since the degree of the polynomial is now fixed to 15, to make things faster, you should generate polynomial features in advance and re-use them throughout the loop. Make sure to use train_valid_shuffled when generating polynomial features!*
+
+```{r}
+dataframe <- poly_dataframe(dataframe = shuffled, 
+                            output = "price", 
+                            feature = "sqft_living", 
+                            degree = 15)
+powers <-seq(3, 9, .5)
+average_errors <- vector()
+# for each index of 10 to use
+for (i in 1:length(powers)){
+  # set the penalty to that index
+  l2_penalty <- 10^powers[i]
+  #compute 
+  RSS <- vector()
+  for (j in 1:k){
+    start <- ceiling((n*(j-1))/k)
+    end <- floor((n*j)/k)
+    validation<-dataframe[(start:end), ]
+    test<-dataframe[-(start:end), ]
+    fit<-linearRidge(formula = output~., 
+                     data = test, 
+                     lambda = l2_penalty)
+    preds<-predict(object = fit, newdata = validation)
+    RSS[j] <- sum((preds-validation$output)^2)
+  }
+  average_errors[i]<-(sum(RSS)/length(RSS))
+}
+validation_errors<-data.frame(powers, average_errors)
+validation_errors
+```
+
+##### Quiz Question: 
+What is the best value for the L2 penalty according to 10-fold validation?
+
+```{r}
+validation_errors$powers[which.min(validation_errors$average_errors)]
+```
+
+The answer is $10^3$
+
+#####Quiz Question: 
+Using the best L2 penalty found above, train a model using all training data. What is the RSS on the TEST data of the model you learn with this L2 penalty?
+
+```{r}
+train_dataframe <- poly_dataframe(dataframe = train_data, 
+                                  output = "price", 
+                                  feature = "sqft_living", 
+                                  degree = 15)
+fit<-linearRidge(formula = output~., 
+                 data = train_dataframe, 
+                 lambda = 10^3)
+test_dataframe<-poly_dataframe(dataframe = test_data, 
+                               output = "price", 
+                               feature = "sqft_living", 
+                               degree = 15)
+preds<-predict(object = fit, newdata = test_dataframe)
+sum((preds-test_dataframe$output)^2)
+```

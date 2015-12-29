@@ -1,0 +1,747 @@
+---
+title: "Performance assessment"
+author: "Varun Boodram"
+date: "December 19, 2015"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+---
+
+This document records my work for week 3 of the regression course offered as part of the Machine Learning Specialization by the University of Washington via Coursera. 
+
+##### Obtention and cleaning
+
+As before, the data were obtained in the form of .zip files, which were downloaded from the [quiz webpage](https://www.coursera.org/learn/ml-regression/supplement/MhFOa/reading-exploring-the-bias-variance-tradeoff). These were stored in a directory on my desktop, and accessed with the following commands
+
+```{r}
+rm(list = ls())
+setwd("~/Desktop/Coursera-MLS-Multiple-regression")
+# Obtain the full data set, the training and the testing data
+allData <- read.csv(unzip(zipfile="./Assessing_Performance/kc_house_data.csv.zip"),
+                    header = T, 
+                    sep = ",", 
+                    quote = " ", 
+                    stringsAsFactors = T )
+train_data <- read.csv(unzip(zipfile="./Assessing_Performance/kc_house_train_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+test_data <- read.csv(unzip(zipfile="./Assessing_Performance/kc_house_test_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+As before, the instructions for this assignment require that the each data point have the following classes: str, str, float, float, float, float, int, str, int, int, int, int, int, int, int, int, str, float, float, float, float. These were ammended appropriately
+
+```{r, echo=FALSE}
+# fix allData
+allData$bathrooms<-as.numeric(allData$bathrooms)
+allData$waterfront<-as.integer(allData$waterfront)
+allData$sqft_above<-as.integer(allData$sqft_above)
+allData$sqft_living15<-as.numeric(allData$sqft_living15)
+allData$grade<-as.integer(allData$grade)
+allData$yr_renovated<-as.integer(allData$yr_renovated)
+allData$price<-as.numeric(allData$price)
+allData$bedrooms<-as.numeric(allData$bedrooms)
+allData$zipcode<-as.character(allData$zipcode)
+allData$long<-as.numeric(allData$long)
+allData$sqft_lot15<-as.numeric(allData$sqft_lot15)
+allData$sqft_living<-as.numeric(allData$sqft_living)
+allData$floors<-as.character(allData$floors)
+allData$condition<-as.integer(allData$condition)
+allData$lat<-as.numeric(allData$lat)
+allData$date<-as.character(allData$date)
+allData$sqft_basement<-as.integer(allData$sqft_basement)
+allData$yr_built<-as.integer(allData$yr_built)
+allData$id<-as.character(allData$id)
+allData$sqft_lot<-as.integer(allData$sqft_lot)
+allData$view<-as.integer(allData$view)
+
+# fix the training data
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-as.character(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.character(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-as.character(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-as.character(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+
+
+# fix the testing data
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-as.character(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.character(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-as.character(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-as.character(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+```
+
+##### EXDA
+Once again, the data provided are already well formatted
+```{r}
+c(dim(train_data), dim(test_data))
+nrow(train_data[!complete.cases(train_data),])
+nrow(test_data[!complete.cases(test_data),])
+c(dim(train_data), dim(test_data))
+```
+
+In each data set, there are `r dim(train_data)[2]` columns. There are `r dim(train_data)[1]` rows in the training set, and `r dim(test_data)[1]` rows in the test set. There are no missing values in either data set. 
+
+*Write a function called ‘polynomial_sframe’ (or otherwise) which accepts an array ‘feature’ and a maximal ‘degree’ and returns an data frame with the first column equal to ‘feature’ and the remaining columns equal to ‘feature’ to increasing integer powers up to ‘degree’.*
+
+```{r}
+## poly_dataframe() accepts as input a data frame, a feature (the name of a single column in that data frame, wrapped in " "), and a degree, and returns a data frame whose consecutive columns are powers of the values of the feature, in increasing order up to the value of the entered degree
+poly_dataframe <- function(dataframe, feature, degree){
+        poly <- matrix(nrow = nrow(dataframe), ncol = degree)
+        names<-vector()
+        if (degree == 1){
+                poly[,1] <- dataframe[[feature]]
+                poly <- as.data.frame(poly)
+                colnames(poly) <- "power_1"
+        } else {
+                columns <- vector()
+                for (i in 1: degree){
+                        names[i] <- paste("power_", i, sep = "")
+                        poly[, i] <- dataframe[[feature]]^i
+                        poly <- as.data.frame(poly)
+                        colnames(poly) <- names
+                        }
+        }
+        poly
+}
+```
+
+*Load in the data and also sort the sales SFrame by ‘sqft_living’. When we plot the fitted values we want to join them up in a line and this works best if the variable on the X-axis (which will be ‘sqft_living’) is sorted. For houses with identical square footage, we break the tie by their prices.*
+
+This is quite interesting. The number of houses listed is 
+
+```{r}
+length(train_data$sqft_living)
+```
+
+whereas the number of houses with a unique value for ```sqft_living``` is only about 5% of all of those: 
+
+```{r}
+length(unique(train_data$sqft_living))
+```
+
+I feel that the instructions here could be better. Are we looking for only the maximal prices for a given ```sqft_living``` or are we sorting the data frame both by ```sqft_living``` and prices? 
+
+The sample python code suggests the latter:
+```
+sales = graphlab.SFrame('kc_house_data.gl/')
+sales = sales.sort(['sqft_living','price'])
+```
+which is acheived with the function:
+```{r}
+tie_Break <- function(dataframe, feature, output){
+         dataframe<-dataframe[with(dataframe, order(dataframe[[feature]], dataframe[[output]])),]
+         dataframe
+}
+```
+
+but I am not happy with not knowing what is really being asked for. 
+
+*Make a 1 degree polynomial SFrame with sales[‘sqft_living’] as the the feature. Call it ‘poly1_data’.*
+
+```{r}
+sales <- tie_Break(dataframe = train_data, 
+                   feature = "sqft_living", 
+                   output = "price")
+```
+
+* Make a 1 degree polynomial SFrame with sales[‘sqft_living’] as the the feature. Call it ‘poly1_data’.*
+
+```{r}
+poly1_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 1)
+```
+
+
+*Add sales[‘price’] to poly1_data as this will be our output variable*
+
+```{r}
+poly1_data <- cbind(poly1_data, sales$price)
+colnames(poly1_data)[2] <- "price"
+head(poly1_data)
+```
+
+*Use graphlab.linear_regression.create (or another linear regression library) to compute the regression weights for predicting sales[‘price’] based on the 1 degree polynomial feature ‘sqft_living’*
+
+```{r}
+model1 <- lm(formula =price~power_1, data = poly1_data)
+```
+
+Next use the produce a scatter plot of the training data (just square feet vs price) and add the fitted model. 
+
+```{r}
+plot(x = poly1_data$power_1, 
+     y = poly1_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "Comparison of Polynomial fits")
+legend("topleft", 
+       lwd=c(2,2.5), 
+       col = c("red"), 
+       legend = c("model1"))
+abline(model1, lwd=3, col="red")
+```
+
+*Now that you have plotted the results using a 1st degree polynomial, try it again using a 2nd degree and 3rd degree polynomial. Look at the fitted lines, do they appear as you would expect?*
+
+```{r}
+poly2_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 2)
+poly2_data <- cbind(poly2_data, sales$price)
+colnames(poly2_data)[3] <- "price"
+model2 <- lm(formula =price~., data = poly2_data)
+plot(x = poly1_data$power_1, 
+     y = poly1_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "Comparison of Polynomial fits")
+legend("topleft", 
+       lwd=c(2,2.5), 
+       col = c("red", "blue"), 
+       legend = c("model1", "model2"))
+abline(model1, lwd=3, col="red")
+# we cannot use abline() anymore, because that only works when you have a straight line fit, which we won't have here. The fitted values from the quadratic are included in the plot as the second argument of points()
+points(x = poly1_data$power_1,
+       y = fitted(model2), 
+       col="blue", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+```
+
+We want to compare our fit to one that is generated by the ```poly()``` function
+
+```{r}
+polyfit <- lm(formula = price~poly(x = power_1, 2), 
+              data = poly1_data)
+plot(x = poly1_data$power_1,
+     y = poly1_data$price)
+points(x = poly1_data$power_1, 
+       y = fitted(model2), 
+       col="blue", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+points(x = poly1_data$power_1,
+       y = fitted(polyfit), 
+       col="dark green", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+```
+
+And it's a match!
+```{r}
+poly3_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 3)
+poly3_data <- cbind(poly3_data, sales$price)
+colnames(poly3_data)[4] <- "price"
+model3 <- lm(formula =price~., data = poly3_data)
+plot(x = poly1_data$power_1, 
+     y = poly1_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "Comparison of Polynomial fits")
+legend("topleft", 
+       lwd=c(2,2.5), 
+       col = c("red", "blue", "dark green"), 
+       legend = c("model1", "model2", "model3"))
+abline(model1, lwd=3, col="red")
+points(x = poly1_data$power_1, 
+       y = fitted(model2), 
+       col="blue", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+points(x = poly1_data$power_1, 
+       y = fitted(model3), 
+       col="dark green", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+```
+
+*Now try a 15th degree polynomial. Print out the coefficients and look at the resulted fitted line. Do you think this degree is appropriate for these data?*
+
+```{r}
+poly15_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 15)
+poly15_data <- cbind(poly15_data, sales$price)
+colnames(poly15_data)[16] <- "price"
+model15 <- lm(formula =price~., data = poly15_data)
+plot(x = poly1_data$power_1, 
+     y = poly1_data$price, 
+     xlab = "Square Feet",
+     ylab = "House Price", 
+     main = "Comparison of Polynomial fits")
+legend("topleft", 
+               lwd=c(2,2.5), 
+               col = c("red", "blue", "dark green", "purple"), 
+               legend = c("model1", "model2", "model3", "model15"))
+abline(model1, lwd=3, col="red")
+points(x = poly1_data$power_1, 
+       y = fitted(model2), 
+       col="blue", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+points(x = poly1_data$power_1, 
+       y = fitted(model3), 
+       col="dark green", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+points(x = poly1_data$power_1, 
+       y = fitted(model15), 
+       col="purple", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+```
+
+
+```{r}
+summary(model15)
+```
+
+It seems pretty clear that this model is inappropriate for these data. None of the features are significant, and just by eyeballing it it seems overfit.
+
+*If we were to use a different subset of the data do you think we would get pretty much the same curve?*
+
+Actually, I don't. The curve is overfitted, so it makes sense that with a different data set that the curve would look different. We get to test this idea in the next question: 
+
+*Estimate a 15th degree polynomial on all 4 sets, plot the results and view the coefficients for all four models*
+
+```{r}
+subset1 <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_set_1_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+subset2 <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_set_2_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+subset3 <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_set_3_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+subset4 <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_set_4_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+All four subsets were fixed to represent the different data types
+
+```{r, echo=FALSE}
+subset1$bathrooms<-as.numeric(subset1$bathrooms)
+subset1$waterfront<-as.integer(subset1$waterfront)
+subset1$sqft_above<-as.integer(subset1$sqft_above)
+subset1$sqft_living15<-as.numeric(subset1$sqft_living15)
+subset1$grade<-as.integer(subset1$grade)
+subset1$yr_renovated<-as.integer(subset1$yr_renovated)
+subset1$price<-as.numeric(subset1$price)
+subset1$bedrooms<-as.numeric(subset1$bedrooms)
+subset1$zipcode<-as.character(subset1$zipcode)
+subset1$long<-as.numeric(subset1$long)
+subset1$sqft_lot15<-as.numeric(subset1$sqft_lot15)
+subset1$sqft_living<-as.numeric(subset1$sqft_living)
+subset1$floors<-as.character(subset1$floors)
+subset1$condition<-as.integer(subset1$condition)
+subset1$lat<-as.numeric(subset1$lat)
+subset1$date<-as.character(subset1$date)
+subset1$sqft_basement<-as.integer(subset1$sqft_basement)
+subset1$yr_built<-as.integer(subset1$yr_built)
+subset1$id<-as.character(subset1$id)
+subset1$sqft_lot<-as.integer(subset1$sqft_lot)
+subset1$view<-as.integer(subset1$view)
+
+subset2$bathrooms<-as.numeric(subset2$bathrooms)
+subset2$waterfront<-as.integer(subset2$waterfront)
+subset2$sqft_above<-as.integer(subset2$sqft_above)
+subset2$sqft_living15<-as.numeric(subset2$sqft_living15)
+subset2$grade<-as.integer(subset2$grade)
+subset2$yr_renovated<-as.integer(subset2$yr_renovated)
+subset2$price<-as.numeric(subset2$price)
+subset2$bedrooms<-as.numeric(subset2$bedrooms)
+subset2$zipcode<-as.character(subset2$zipcode)
+subset2$long<-as.numeric(subset2$long)
+subset2$sqft_lot15<-as.numeric(subset2$sqft_lot15)
+subset2$sqft_living<-as.numeric(subset2$sqft_living)
+subset2$floors<-as.character(subset2$floors)
+subset2$condition<-as.integer(subset2$condition)
+subset2$lat<-as.numeric(subset2$lat)
+subset2$date<-as.character(subset2$date)
+subset2$sqft_basement<-as.integer(subset2$sqft_basement)
+subset2$yr_built<-as.integer(subset2$yr_built)
+subset2$id<-as.character(subset2$id)
+subset2$sqft_lot<-as.integer(subset2$sqft_lot)
+subset2$view<-as.integer(subset2$view)
+
+subset3$bathrooms<-as.numeric(subset3$bathrooms)
+subset3$waterfront<-as.integer(subset3$waterfront)
+subset3$sqft_above<-as.integer(subset3$sqft_above)
+subset3$sqft_living15<-as.numeric(subset3$sqft_living15)
+subset3$grade<-as.integer(subset3$grade)
+subset3$yr_renovated<-as.integer(subset3$yr_renovated)
+subset3$price<-as.numeric(subset3$price)
+subset3$bedrooms<-as.numeric(subset3$bedrooms)
+subset3$zipcode<-as.character(subset3$zipcode)
+subset3$long<-as.numeric(subset3$long)
+subset3$sqft_lot15<-as.numeric(subset3$sqft_lot15)
+subset3$sqft_living<-as.numeric(subset3$sqft_living)
+subset3$floors<-as.character(subset3$floors)
+subset3$condition<-as.integer(subset3$condition)
+subset3$lat<-as.numeric(subset3$lat)
+subset3$date<-as.character(subset3$date)
+subset3$sqft_basement<-as.integer(subset3$sqft_basement)
+subset3$yr_built<-as.integer(subset3$yr_built)
+subset3$id<-as.character(subset3$id)
+subset3$sqft_lot<-as.integer(subset3$sqft_lot)
+subset3$view<-as.integer(subset3$view)
+
+subset4$bathrooms<-as.numeric(subset4$bathrooms)
+subset4$waterfront<-as.integer(subset4$waterfront)
+subset4$sqft_above<-as.integer(subset4$sqft_above)
+subset4$sqft_living15<-as.numeric(subset4$sqft_living15)
+subset4$grade<-as.integer(subset4$grade)
+subset4$yr_renovated<-as.integer(subset4$yr_renovated)
+subset4$price<-as.numeric(subset4$price)
+subset4$bedrooms<-as.numeric(subset4$bedrooms)
+subset4$zipcode<-as.character(subset4$zipcode)
+subset4$long<-as.numeric(subset4$long)
+subset4$sqft_lot15<-as.numeric(subset4$sqft_lot15)
+subset4$sqft_living<-as.numeric(subset4$sqft_living)
+subset4$floors<-as.character(subset4$floors)
+subset4$condition<-as.integer(subset4$condition)
+subset4$lat<-as.numeric(subset4$lat)
+subset4$date<-as.character(subset4$date)
+subset4$sqft_basement<-as.integer(subset4$sqft_basement)
+subset4$yr_built<-as.integer(subset4$yr_built)
+subset4$id<-as.character(subset4$id)
+subset4$sqft_lot<-as.integer(subset4$sqft_lot)
+subset4$view<-as.integer(subset4$view)
+```
+
+```{r}
+c(dim(subset1), dim(subset2), dim(subset3), dim(subset4))
+sales <- tie_Break(dataframe = subset1, 
+                   feature = "sqft_living", 
+                   output = "price")
+subset1_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 15)
+subset1_data <- cbind(subset1_data, sales$price)
+colnames(subset1_data)[16] <- "price"
+subset1_model <- lm(formula = price~., data = subset1_data)
+plot(x = subset1_data$power_1, 
+     y = subset1_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "15th degree polynomial fit to subset 1")
+points(x = subset1_data$power_1, 
+       y = fitted(subset1_model), 
+       col="red", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+```
+
+It is already clear that the above curve differs significantly from the 15th degree model previously fit. 
+
+```{r, echo=FALSE}
+sales <- tie_Break(dataframe = subset2, 
+                   feature = "sqft_living", 
+                   output = "price")
+subset2_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 15)
+subset2_data <- cbind(subset2_data, sales$price)
+colnames(subset2_data)[16] <- "price"
+subset2_model <- lm(formula = price~., data = subset2_data)
+plot(x = subset2_data$power_1, 
+     y = subset2_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "15th degree polynomial fit to subset 2")
+points(x = subset2_data$power_1, 
+       y = fitted(subset2_model), 
+       col="blue", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+
+
+sales <- tie_Break(dataframe = subset3, 
+                   feature = "sqft_living", 
+                   output = "price")
+subset3_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 15)
+subset3_data <- cbind(subset3_data, sales$price)
+colnames(subset3_data)[16] <- "price"
+subset3_model <- lm(formula = price~., data = subset3_data)
+plot(x = subset3_data$power_1, 
+     y = subset3_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "15th degree polynomial fit to subset 3")
+points(x = subset3_data$power_1, 
+       y = fitted(subset3_model), 
+       col="dark green", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+
+sales <- tie_Break(dataframe = subset4, 
+                   feature = "sqft_living", 
+                   output = "price")
+subset4_data <- poly_dataframe(dataframe = sales, 
+                             feature = "sqft_living", 
+                             degree = 15)
+subset4_data <- cbind(subset4_data, sales$price)
+colnames(subset4_data)[16] <- "price"
+subset4_model <- lm(formula = price~., data = subset4_data)
+plot(x = subset4_data$power_1, 
+     y = subset4_data$price, 
+     xlab = "Square Feet", 
+     ylab = "House Price", 
+     main = "15th degree polynomial fit to subset 4")
+points(x = subset4_data$power_1, 
+       y = fitted(subset4_model), 
+       col="purple", 
+       pch = 20, 
+       type = "l", 
+       lwd=3)
+```
+
+##### Quiz Question: 
+*Is the sign (positive or negative) for power_15 the same in all four models?*
+
+```{r}
+subset1_model$coefficients[16]
+subset2_model$coefficients[16]
+subset3_model$coefficients[16]
+subset4_model$coefficients[16]
+```
+
+Three of the four models do not even assign a weight to ```power_15```
+
+##### Quiz Question: 
+*True/False the plotted fitted lines look the same in all four plots*
+
+Obviously this is not the case. 
+
+*Download the provided csv files for training, validation and test data*
+
+```{r}
+train_data <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_train_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+
+validation_data <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_valid_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+
+test_data <-read.csv(unzip(zipfile="./Assessing_Performance/wk3_kc_house_test_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+```{r, echo=FALSE}
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-as.character(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.character(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-as.character(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-as.character(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+
+validation_data$bathrooms<-as.numeric(validation_data$bathrooms)
+validation_data$waterfront<-as.integer(validation_data$waterfront)
+validation_data$sqft_above<-as.integer(validation_data$sqft_above)
+validation_data$sqft_living15<-as.numeric(validation_data$sqft_living15)
+validation_data$grade<-as.integer(validation_data$grade)
+validation_data$yr_renovated<-as.integer(validation_data$yr_renovated)
+validation_data$price<-as.numeric(validation_data$price)
+validation_data$bedrooms<-as.numeric(validation_data$bedrooms)
+validation_data$zipcode<-as.character(validation_data$zipcode)
+validation_data$long<-as.numeric(validation_data$long)
+validation_data$sqft_lot15<-as.numeric(validation_data$sqft_lot15)
+validation_data$sqft_living<-as.numeric(validation_data$sqft_living)
+validation_data$floors<-as.character(validation_data$floors)
+validation_data$condition<-as.integer(validation_data$condition)
+validation_data$lat<-as.numeric(validation_data$lat)
+validation_data$date<-as.character(validation_data$date)
+validation_data$sqft_basement<-as.integer(validation_data$sqft_basement)
+validation_data$yr_built<-as.integer(validation_data$yr_built)
+validation_data$id<-as.character(validation_data$id)
+validation_data$sqft_lot<-as.integer(validation_data$sqft_lot)
+validation_data$view<-as.integer(validation_data$view)
+
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-as.character(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.character(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-as.character(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-as.character(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+```
+*Now for each degree from 1 to 15:*
+
+* *Build an polynomial data set using training_data[‘sqft_living’] as the feature and the current degree*
+* *Add training_data[‘price’] as a column to your polynomial data set*
+* *Learn a model on TRAINING data to predict ‘price’ based on your polynomial data set at the current degree*
+* *Compute the RSS on VALIDATION for the current model (print or save the RSS)*
+
+```{r}
+sales <- tie_Break(dataframe = train_data, 
+                   feature = "sqft_living", 
+                   output = "price")
+RSS<-vector()
+for (i in 1:15){
+        model<-lm(formula = price~poly(sqft_living, i),
+                  data =  sales)
+        plot(x = sales$sqft_living, y = sales$price, xlab = "Square Feet Living", ylab = "House Price", main = paste("Polynomial fit to the training data of degree", i, sep = " "))
+        points(x = sales$sqft_living, 
+               y = fitted(model), 
+               type = "l", 
+               lwd=3, 
+               col="red")
+        predictions<-predict(object = model, 
+                             newdata = validation_data)
+        residuals<-predictions-validation_data$price
+        RSS[i]<-sum(residuals^2)
+        
+}
+which.min(RSS)
+```
+
+##### Quiz Question: 
+*Which degree (1, 2, …, 15) had the lowest RSS on Validation data?*
+
+This is given by the model with degree 5
+
+*Now that you have selected a degree compute the RSS on TEST data for the model with the best degree from the Validation data.*
+
+```{r}
+model<-lm(formula = price~poly(sqft_living, 3),
+                  data =  sales)
+predictions<-predict(object = model, 
+                             newdata = test_data)
+residuals<-predictions-test_data$price
+RSS<-sum(residuals^2)
+```
+
+##### Quiz Question:
+*what is the RSS on TEST data for the model with the degree selected from Validation data? (Make sure you got the correct degree from the previous question)*
+
+This is `r RSS`
+
+
+```{r}
+sales <- tie_Break(dataframe = train_data, 
+                   feature = "sqft_living", 
+                   output = "price")
+validation<- tie_Break(dataframe = validation_data, feature = "sqft_living", output = "price")
+
+RSS<-vector()
+for (i in 1:15){
+        polydf<-poly_dataframe(dataframe = sales, 
+                               feature = "sqft_living", 
+                               degree = i)
+        validation_df<-poly_dataframe(dataframe = validation, 
+                               feature = "sqft_living", 
+                               degree = i)
+        polydf<-cbind(polydf, sales$price)
+        validation_df<-cbind(validation_df, validation$price)
+        colnames(polydf)[ncol(polydf)]<-"price"
+        colnames(validation_df)[ncol(validation_df)]<-"price"
+        model<-lm(price~., data = polydf)
+        predictions<-predict(object = model, newdata = validation_df)
+        residuals<-validation_df$price-predictions
+        RSS[i]<-sum(residuals^2)
+}
+which.min(RSS)
+```
+
