@@ -1,0 +1,405 @@
+---
+title: "Lasso2"
+author: "Varun Boodram"
+date: "January 3, 2016"
+output: html_document
+---
+
+The data were downloaded, imported into the current working directory and cleaned as usual
+
+```{r, cache=TRUE}
+setwd("~/Desktop/Coursera-MLS-Multiple-regression/04 Lasso")
+# Obtain the full data set, the training, testing, and validation data
+allData <- read.csv(unzip(zipfile="./datasets/kc_house_data.csv.zip"),
+                    header = T, 
+                    sep = ",", 
+                    quote = " ", 
+                    stringsAsFactors = F )
+train_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_train_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = F )
+test_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_test_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = F )
+validation_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_valid_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = F )
+```
+
+```{r, echo=FALSE, cache=TRUE}
+# fix the training data
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+#train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-as.character(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.character(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-as.character(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-as.character(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+
+
+# fix the testing data
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+#test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-as.character(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.character(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-as.character(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-as.character(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+```
+
+From Module 2 (Multiple Regression), the ```construct_matrix()``` function, which takes a data set, a list of features (e.g. ```[‘sqft_living’, ‘bedrooms’]```) to be used as inputs, and a name of the output (e.g. ```‘price’```), was coppied. This function returns a ```‘feature_matrix’``` (2D array) consisting of first a column of ones followed by columns containing the values of the input features in the data set in the same order as the input list. It also returns an ```‘output_array’``` which is an array of the values of the output in the data set (e.g. ```‘price’```).
+
+```{r}
+# construct_matrix() accepts as input a list of features, a list of outputs, and a data.frame, and returns a list of the values of the feaures (as entered), and a matrix of the outputs (as entered)
+construct_features_matrix <- function(features, outputs, data){
+        # convert features input to a list
+        features <- as.list(features)
+        # extract the features data from the data
+        subset_data <- get_output(data, features)
+        # extract what we want to predict from the data
+        subset_outputs <- get_output(data, outputs)
+        # append a vector of ones to the features matrix 
+        features_matrix <- create_matrix(subset_data)
+        IO <- list(features_matrix, subset_outputs)
+        IO
+}
+
+# get_output() subsets the data frame into the inputs provided
+get_output <- function(data, features){
+        output<-matrix(nrow = nrow(data), ncol = length(features))
+        for (i in 1: length(features)){
+               output[,i]<-as.numeric(data[[features[[i]]]])
+        }
+        output
+}
+
+# create_matrix appends a column of 1s to the output of get_output()
+create_matrix <- function(subset_data){
+        length <- nrow(subset_data)
+        concatinated <- cbind(rep(1, length), subset_data)
+        concatinated
+}
+```
+
+Similarly, the ```predict_output()``` function from Module 2 was copied and pasted. 
+
+```{r}
+# predict_outputs() takes as inputs a matrix of features, and a weights vector (c()), and returns a vector of predicted outputs. Output is N X 1 vector
+predict_output <- function(feature_matrix, weights){
+        predictions<-feature_matrix[[1]]%*%weights
+        predictions
+}
+```
+
+
+In the house dataset, features vary wildly in their relative magnitude: ‘sqft_living’ is very large overall compared to ‘bedrooms’, for instance. As a result, weight for ‘sqft_living’ would be much smaller than weight for ‘bedrooms’. This is problematic because “small” weights are dropped first as l1_penalty goes up.
+
+To give equal considerations for all features, we need to normalize features as discussed in the lectures: we divide each feature by its 2-norm so that the transformed feature has norm 1.
+
+```{r}
+normalize_features <- function(feature_matrix){
+        norms<-as.numeric(vector(length = ncol(feature_matrix[[1]])))
+        normalized_features <- matrix(nrow = nrow(feature_matrix[[1]]), ncol = ncol(feature_matrix[[1]]))
+        for (i in 1:ncol(feature_matrix[[1]])){
+                v<-feature_matrix[[1]][,i]
+                norms[i]<-sqrt(sum(v^2))
+                normalized_features[,i] <- feature_matrix[[1]][,i]/norms[i]
+        }
+        list(normalized_features, norms)
+}
+```
+
+First, run get_numpy_data() (or equivalent) to obtain a feature matrix with 3 columns (constant column added): ‘sqft_living’ and ‘bedrooms’. The output is ‘price’.. Use the entire ‘sales’ dataset for now.
+
+```{r}
+feature_matrix <- construct_features_matrix(features = c("sqft_living", "bedrooms"), outputs = "price", data = allData)
+```
+
+Normalize columns of the feature matrix. Save the norms of original features as ‘norms’.
+
+```{r}
+normalized_features <- normalize_features(feature_matrix = feature_matrix)
+```
+
+Set initial weights to [1,4,1].
+
+```{r}
+initial_weights <- c(1,4,1)
+```
+
+Make predictions with feature matrix and initial weights.
+```{r}
+predictions <- predict_output(feature_matrix = normalized_features, weights = initial_weights)
+```
+
+Compute values of ro[i]
+
+```{r}
+rho <- vector()
+for (i in 1:ncol(feature_matrix[[1]])){
+        rho[i]<- sum(normalized_features[[1]][,i]*(feature_matrix[[2]]-predictions+initial_weights[i]*normalized_features[[1]][,i]))
+}
+rho
+```
+ Quiz Question: Recall that, whenever ro[i] falls between -l1_penalty/2 and l1_penalty/2, the corresponding weight w[i] is sent to zero. Now suppose we were to take one step of coordinate descent on either feature 1 or feature 2. What range of values of l1_penalty would not set w[1] zero, but would set w[2] to zero, if we were to take a step in that coordinate?
+ 
+ 
+```{r}
+penalties <- c(1.4e8, 1.64e8, 1.73e8, 1.9e8, 2.3e8)
+for (i in 1: length(penalties)){
+        test1 <- -penalties[i]/2 < rho
+        test2 <- rho < penalties[i]/2
+        if (test1[3]==T & test2[3]==T){
+                if (test1[2]==F || test2[2]==F){
+                        print(paste(penalties[i]," acheives the effect"))
+                }
+        }
+}
+```
+Which of the following values of l1_penalty would set both w[1] and w[2] to zero, if we were to take a coordinate gradient step in that coordinate? (Select all that apply)
+
+*1.4e8
+
+*1.64e8
+
+*1.73e8
+
+*1.9e8
+
+*2.3e8
+
+```{r}
+penalties <- c(1.4e8, 1.64e8, 1.73e8, 1.9e8, 2.3e8)
+for (i in 1: length(penalties)){
+        test1 <- -penalties[i]/2 < rho
+        test2 <- rho < penalties[i]/2
+        if (test1[3]==T & test2[3]==T){
+                if (test1[2]==T & test2[2]==T){
+                        print(paste(penalties[i]," acheives the effect"))
+                }
+        }
+}
+```
+
+Using the formula above, implement coordinate descent that minimizes the cost function over a single feature i. Note that the intercept (weight 0) is not regularized. The function should accept feature matrix, output, current weights, l1 penalty, and index of feature to optimize over. The function should return new weight for feature i.
+
+```{r}
+lasso_coordinate_descent_step <- function(i, feature_matrix, weights, l1_penalty){
+        # compute normalized features
+        normalized_features <- normalize_features(feature_matrix = feature_matrix)
+        # compute prediction
+        prediction = predict_output(
+                feature_matrix = normalized_features, 
+                weights = weights)
+        # compute rho[i] 
+        rho<- sum(normalized_features[[1]][,i]*(feature_matrix[[2]]-prediction+weights[i]*normalized_features[[1]][,i]))
+        # assign weights
+        if (i == 1){
+                new_weight_i <- rho
+        } else {
+                if (rho < - l1_penalty/2){
+                        new_weight_i <- rho + l1_penalty/2
+                } else {
+                        if (rho > l1_penalty/2){
+                        new_weight_i <- rho - l1_penalty/2
+                        } else {
+                        new_weight_i <- 0
+                        }
+                }
+        }
+        new_weight_i
+}
+```
+
+Now that we have a function that optimizes the cost function over a single coordinate, let us implement cyclical coordinate descent where we optimize coordinates 0, 1, ..., (d-1) in order and repeat.
+
+For each iteration:
+
+* As you loop over features in order and perform coordinate descent, measure how much each coordinate changes.
+* After the loop, if the maximum change across all coordinates is falls below the tolerance, stop. Otherwise, go back to the previous step.
+* Return weights
+
+```{r}
+lasso_cyclical_coordinate_descent <- function(feature_matrix, initial_weights, l1_penalty, tolerance){
+        converged <- F
+        weights <- initial_weights 
+        new_weights <- vector(length = length(weights))
+        while (converged == F){
+                old_weights<-weights
+                for (i in 1:ncol(feature_matrix[[1]])){
+                     weights[i]<-lasso_coordinate_descent_step(i = i, feature_matrix = feature_matrix, weights = weights, l1_penalty = l1_penalty)
+                }
+                change <-vector()
+                for (i in 1: length(weights)){
+                        change[i]<-old_weights[i]-weights[i]
+                }
+                if (max(abs(change))<tolerance){
+                        converged <- T
+                }
+        }
+        weights
+}
+```
+
+Let us now go back to the simple model with 2 features: ‘sqft_living’ and ‘bedrooms’. Using ‘get_numpy_data’ (or equivalent), extract the feature matrix and the output array from from the house dataframe. 
+
+```{r}
+feature_matrix <- construct_features_matrix(features = c("sqft_living", "bedrooms"), outputs = "price", data = allData)
+```
+
+
+Then normalize the feature matrix using ‘normalized_features()’ function.
+
+```{r}
+normalized_features <- normalize_features(feature_matrix = feature_matrix)
+```
+
+Using the following parameters, learn the weights on the sales dataset.
+
+* Initial weights = all zeros
+* L1 penalty = 1e7
+* Tolerance = 1.0
+
+```{r}
+weights <- lasso_cyclical_coordinate_descent(feature_matrix = feature_matrix, initial_weights = rep(0, 3), l1_penalty = 1e7, tolerance = 1)
+```
+
+Which of the following ranges contains the RSS of the learned model on the normalized dataset?
+
+```{r}
+lasso_preds <- normalized_features[[1]]%*%weights
+residuals <- feature_matrix[[2]]-lasso_preds
+sum(residuals^2)
+```
+
+ Create a normalized feature matrix from the TRAINING data with the following set of features.
+
+bedrooms, bathrooms, sqft_living, sqft_lot, floors, waterfront, view, condition, grade, sqft_above, sqft_basement, yr_built, yr_renovated
+
+```{r}
+feature_matrix <- construct_features_matrix(features = c("bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors", "waterfront", "view", "condition", "grade", "sqft_above", "sqft_basement", "yr_built", "yr_renovated"), outputs = "price", data = train_data)
+feature_matrix[[1]][,6]<-train_data$waterfront
+normalized_features <- normalize_features(feature_matrix)
+```
+
+First, learn the weights with l1_penalty=1e7, on the training data. Initialize weights to all zeros, and set the tolerance=1. Call resulting weights’ weights1e7’, you will need them later.
+
+```{r}
+weights1e7<-lasso_cyclical_coordinate_descent(feature_matrix = feature_matrix, initial_weights = rep(0, ncol(feature_matrix[[1]])), l1_penalty = 1e7, tolerance = 1)
+```
+
+Quiz Question: What features had non-zero weight in this case?
+
+```{r}
+features <- c("constant", "bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors", "waterfront", "view", "condition", "grade", "sqft_above", "sqft_basement", "yr_built", "yr_renovated")
+features[which(weights1e7>0, arr.ind = T)]
+```
+
+Next, learn the weights with l1_penalty=1e8, on the training data. Initialize weights to all zeros, and set the tolerance=1. Call resulting weights ‘weights1e8’, you will need them later.
+
+```{r}
+weights1e8 <- lasso_cyclical_coordinate_descent(feature_matrix = feature_matrix, initial_weights = rep(0, ncol(feature_matrix[[1]])), l1_penalty = 1e8, tolerance = 1)
+```
+
+Quiz Question: What features had non-zero weight in this case?
+
+```{r}
+features[which(weights1e8>0, arr.ind = T)]
+```
+
+Finally, learn the weights with l1_penalty=1e4, on the training data. Initialize weights to all zeros, and set the tolerance=5e5. Call resulting weights ‘weights1e4’, you will need them later. (This case will take quite a bit longer to converge than the others above.)
+
+```{r}
+weights1e4 <- lasso_cyclical_coordinate_descent(feature_matrix = feature_matrix, initial_weights = rep(0, ncol(feature_matrix[[1]])), l1_penalty = 1e4, tolerance = 5e5)
+```
+
+Quiz Question: What features had non-zero weight in this case?
+
+```{r}
+features[which(weights1e4>0, arr.ind = T)]
+```
+
+Recall that we normalized our feature matrix, before learning the weights. To use these weights on a test set, we must normalize the test data in the same way. Alternatively, we can rescale the learned weights to include the normalization, so we never have to worry about normalizing the test data:
+
+In this case, we must scale the resulting weights so that we can make predictions with original features:
+
+* Store the norms of the original features to a vector called ‘norms’
+
+* Run Lasso on the normalized features and obtain a ‘weights’ vector
+
+* Compute the weights for the original features by performing element-wise division, i.e.
+
+```
+weights_normalized = weights / norms
+```
+
+Now, we can apply weights_normalized to the test data, without normalizing it!
+
+Create a normalized version of each of the weights learned above. (```weights1e4```, ```weights1e7```, ```weights1e8```). To check your results, if you call ```normalized_weights1e7``` the normalized version of ```weights1e7```, then
+```
+print normalized_weights1e7[3]
+```
+should print 161.31745624837794.
+
+```{r}
+normalized_weights1e4<-weights1e4/normalized_features[[2]]
+normalized_weights1e7<-weights1e7/normalized_features[[2]]
+normalized_weights1e8<-weights1e8/normalized_features[[2]]
+normalized_weights1e7[4]
+```
+
+This is not the same, but is perhaps close enough, given that this is a different tool.
+
+Let's now evaluate the three models on the test data. Extract the feature matrix and output array from the TEST set. But this time, do NOT normalize the feature matrix. Instead, use the normalized version of weights to make predictions.
+
+Compute the RSS of each of the three normalized weights on the (unnormalized) feature matrix.
+
+Quiz Question: Which model performed best on the test data?
+
+```{r}
+test_feature_matrix <- construct_features_matrix(features = c("bedrooms", "bathrooms", "sqft_living", "sqft_lot", "floors", "waterfront", "view", "condition", "grade", "sqft_above", "sqft_basement", "yr_built", "yr_renovated"), outputs = "price", data = test_data)
+test_feature_matrix[[1]][,6]<-test_data$waterfront
+predictions_e4 <- test_feature_matrix[[1]]%*%weights1e4
+RSS_e4 <- sum((test_feature_matrix[[2]]-predictions_e4)^2)
+predictions_e7 <- test_feature_matrix[[1]]%*%weights1e7
+RSS_e7 <- sum((test_feature_matrix[[2]]-predictions_e7)^2)
+predictions_e8 <- test_feature_matrix[[1]]%*%weights1e8
+RSS_e8 <- sum((test_feature_matrix[[2]]-predictions_e8)^2)
+c(RSS_e4, RSS_e7, RSS_e8)
+which.min(c(RSS_e4, RSS_e7, RSS_e8))
+```
+

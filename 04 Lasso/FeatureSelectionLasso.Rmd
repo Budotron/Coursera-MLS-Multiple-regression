@@ -1,0 +1,271 @@
+---
+title: "Feature Selection with Lasso"
+author: "Varun Boodram"
+date: "December 31, 2015"
+output:
+  html_document:
+    theme: cerulean
+  pdf_document: default
+---
+
+In this assignment, you will use LASSO to select features, building on a pre-implemented solver for LASSO (using GraphLab Create, though you can use other solvers). You will:
+
+* Run LASSO with different L1 penalties.
+* Choose best L1 penalty using a validation set.
+* Choose best L1 penalty using a validation set, with additional constraint on the size of subset.
+* In the second assignment, you will implement your own LASSO solver, using coordinate descent.
+
+#### Data Obtention
+
+The data were downloaded from the course website in a pervious assignment, and were accessed again with the following code
+
+```{r, cache=TRUE}
+setwd("~/Desktop/Coursera-MLS-Multiple-regression/04 Lasso")
+
+# Obtain the full data set, the training, testing, and validation data
+allData <- read.csv(unzip(zipfile="./datasets/kc_house_data.csv.zip"),
+                    header = T, 
+                    sep = ",", 
+                    quote = " ", 
+                    stringsAsFactors = T )
+train_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_train_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+test_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_test_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+validation_data <- read.csv(unzip(zipfile="./datasets/wk3_kc_house_valid_data.csv.zip"),
+                       header = T, 
+                       sep = ",", 
+                       quote = " ", 
+                       stringsAsFactors = T )
+```
+
+As usual, the classes of the data were altered to reflect the ones that were needed. 
+
+```{r, echo=FALSE, cache=TRUE}
+# fix allData
+allData$bathrooms<-as.numeric(allData$bathrooms)
+allData$waterfront<-as.integer(allData$waterfront)
+allData$sqft_above<-as.integer(allData$sqft_above)
+allData$sqft_living15<-as.numeric(allData$sqft_living15)
+allData$grade<-as.integer(allData$grade)
+allData$yr_renovated<-as.integer(allData$yr_renovated)
+allData$price<-as.numeric(allData$price)
+allData$bedrooms<-as.numeric(allData$bedrooms)
+allData$zipcode<-toString(allData$zipcode)
+allData$long<-as.numeric(allData$long)
+allData$sqft_lot15<-as.numeric(allData$sqft_lot15)
+allData$sqft_living<-as.numeric(allData$sqft_living)
+allData$floors<-as.numeric(allData$floors)
+allData$condition<-as.integer(allData$condition)
+allData$lat<-as.numeric(allData$lat)
+allData$date<-toString(allData$date)
+allData$sqft_basement<-as.integer(allData$sqft_basement)
+allData$yr_built<-as.integer(allData$yr_built)
+allData$id<-toString(allData$id)
+allData$sqft_lot<-as.integer(allData$sqft_lot)
+allData$view<-as.integer(allData$view)
+
+
+# fix the training data
+train_data$bathrooms<-as.numeric(train_data$bathrooms)
+train_data$waterfront<-as.integer(train_data$waterfront)
+train_data$sqft_above<-as.integer(train_data$sqft_above)
+train_data$sqft_living15<-as.numeric(train_data$sqft_living15)
+train_data$grade<-as.integer(train_data$grade)
+train_data$yr_renovated<-as.integer(train_data$yr_renovated)
+train_data$price<-as.numeric(train_data$price)
+train_data$bedrooms<-as.numeric(train_data$bedrooms)
+train_data$zipcode<-toString(train_data$zipcode)
+train_data$long<-as.numeric(train_data$long)
+train_data$sqft_lot15<-as.numeric(train_data$sqft_lot15)
+train_data$sqft_living<-as.numeric(train_data$sqft_living)
+train_data$floors<-as.numeric(train_data$floors)
+train_data$condition<-as.integer(train_data$condition)
+train_data$lat<-as.numeric(train_data$lat)
+train_data$date<-toString(train_data$date)
+train_data$sqft_basement<-as.integer(train_data$sqft_basement)
+train_data$yr_built<-as.integer(train_data$yr_built)
+train_data$id<-toString(train_data$id)
+train_data$sqft_lot<-as.integer(train_data$sqft_lot)
+train_data$view<-as.integer(train_data$view)
+
+
+# fix the testing data
+test_data$bathrooms<-as.numeric(test_data$bathrooms)
+test_data$waterfront<-as.integer(test_data$waterfront)
+test_data$sqft_above<-as.integer(test_data$sqft_above)
+test_data$sqft_living15<-as.numeric(test_data$sqft_living15)
+test_data$grade<-as.integer(test_data$grade)
+test_data$yr_renovated<-as.integer(test_data$yr_renovated)
+test_data$price<-as.numeric(test_data$price)
+test_data$bedrooms<-as.numeric(test_data$bedrooms)
+test_data$zipcode<-toString(test_data$zipcode)
+test_data$long<-as.numeric(test_data$long)
+test_data$sqft_lot15<-as.numeric(test_data$sqft_lot15)
+test_data$sqft_living<-as.numeric(test_data$sqft_living)
+test_data$floors<-as.numeric(test_data$floors)
+test_data$condition<-as.integer(test_data$condition)
+test_data$lat<-as.numeric(test_data$lat)
+test_data$date<-toString(test_data$date)
+test_data$sqft_basement<-as.integer(test_data$sqft_basement)
+test_data$yr_built<-as.integer(test_data$yr_built)
+test_data$id<-toString(test_data$id)
+test_data$sqft_lot<-as.integer(test_data$sqft_lot)
+test_data$view<-as.integer(test_data$view)
+
+# fix the validation data
+validation_data$bathrooms<-as.numeric(validation_data$bathrooms)
+validation_data$waterfront<-as.integer(validation_data$waterfront)
+validation_data$sqft_above<-as.integer(validation_data$sqft_above)
+validation_data$sqft_living15<-as.numeric(validation_data$sqft_living15)
+validation_data$grade<-as.integer(validation_data$grade)
+validation_data$yr_renovated<-as.integer(validation_data$yr_renovated)
+validation_data$price<-as.numeric(validation_data$price)
+validation_data$bedrooms<-as.numeric(validation_data$bedrooms)
+validation_data$zipcode<-toString(validation_data$zipcode)
+validation_data$long<-as.numeric(validation_data$long)
+validation_data$sqft_lot15<-as.numeric(validation_data$sqft_lot15)
+validation_data$sqft_living<-as.numeric(validation_data$sqft_living)
+validation_data$floors<-as.numeric(validation_data$floors)
+validation_data$condition<-as.integer(validation_data$condition)
+validation_data$lat<-as.numeric(validation_data$lat)
+validation_data$date<-toString(validation_data$date)
+validation_data$sqft_basement<-as.integer(validation_data$sqft_basement)
+validation_data$yr_built<-as.integer(validation_data$yr_built)
+validation_data$id<-toString(validation_data$id)
+validation_data$sqft_lot<-as.integer(validation_data$sqft_lot)
+validation_data$view<-as.integer(validation_data$view)
+```
+
+#### 1. Create new features by performing following transformation on inputs:
+
+```{r}
+# new features in the full data set
+allData$sqft_living_sqrt <- sqrt(allData$sqft_living)
+allData$sqft_lot_sqrt <- sqrt(allData$sqft_lot)
+allData$bedrooms_square <- allData$bedrooms^2
+allData$floors_square <- allData$floors^2
+
+# new features in the training data
+train_data$sqft_living_sqrt <- sqrt(train_data$sqft_living)
+train_data$sqft_lot_sqrt <- sqrt(train_data$sqft_lot)
+train_data$bedrooms_square <- train_data$bedrooms^2
+train_data$floors_square <- train_data$floors^2
+
+# similarly, create teh new features in the test and validation data 
+test_data$sqft_living_sqrt <- sqrt(test_data$sqft_living)
+test_data$sqft_lot_sqrt <- sqrt(test_data$sqft_lot)
+test_data$bedrooms_square <- test_data$bedrooms^2
+test_data$floors_square <- test_data$floors^2
+
+validation_data$sqft_living_sqrt <- sqrt(validation_data$sqft_living)
+validation_data$sqft_lot_sqrt <- sqrt(validation_data$sqft_lot)
+validation_data$bedrooms_square <- validation_data$bedrooms^2
+validation_data$floors_square <- validation_data$floors^2
+```
+
+#### 2. Using the entire house dataset, learn regression weights using an L1 penalty of 5e2. Make sure to add "normalize=True" when creating the Lasso object. 
+
+Which of the following features have been chosen by LASSO, i.e. which features were assigned nonzero weights? (Choose all that apply)
+
+* yr_renovated
+* waterfront
+* sqft_living
+* grade
+* floors
+
+```{r}
+require(glmnet)
+x <- model.matrix(price~. -1, data = allData)
+y <- allData$price
+fit <- glmnet(x, y, alpha = 1, lambda = 1e10)
+inds<-which(coef(fit)!=0)
+rownames(coef(fit))[inds][grep(pattern = "yr_renovated", x = rownames(coef(fit))[inds])]
+rownames(coef(fit))[inds][grep(pattern = "waterfront", x = rownames(coef(fit))[inds])]
+rownames(coef(fit))[inds][grep(pattern = "sqft_living", x = rownames(coef(fit))[inds])]
+rownames(coef(fit))[inds][grep(pattern = "grade", x = rownames(coef(fit))[inds])]
+rownames(coef(fit))[inds][grep(pattern = "floors", x = rownames(coef(fit))[inds])]
+```
+
+#### 4 To find a good L1 penalty, we will explore multiple values using a validation set. Let us do three way split into train, validation, and test sets. Download the provided csv files containing training, validation and test sets.
+
+Now for each l1_penalty in [10^1, 10^1.5, 10^2, 10^2.5, ..., 10^7] (to get this in Python, type np.logspace(1, 7, num=13).): 
+
+* Learn a model on TRAINING data using the specified l1_penalty.
+* Compute the RSS on VALIDATION for the current model (print or save the RSS)
+
+##### Quiz Question: Which was the best value for the l1_penalty, i.e. which value of l1_penalty produced the lowest RSS on VALIDATION data?
+
+```{r}
+powers <- seq(1, 7, 0.5)
+RSS <- vector()
+train <- 1:nrow(train_data)
+combined<-rbind(train_data, validation_data)
+x <- model.matrix(price~., data = combined)[, -1]
+y <- combined$price
+for (i in 1:length(powers)){
+        l2_penalty <- 10^powers[i]
+        fit <- glmnet(x[train,], y[train], alpha = 1, lambda = l2_penalty)
+        predictions <- predict.glmnet(
+                object = fit, 
+                newx = x[-train, ])
+        RSS[i] <- sum(
+                (predictions - validation_data$price)^2)
+        print(RSS[i])
+}
+all_RSS <- data.frame(powers, RSS)
+all_RSS
+all_RSS[which.min(all_RSS$RSS),]
+best_lambda <- 10^all_RSS[which.min(all_RSS$RSS),]$powers
+best_lambda
+```
+
+#### Now that you have selected an L1 penalty, compute the RSS on TEST data for the model with the best L1 penalty.
+
+```{r}
+x <- model.matrix(price~., data = test_data)[, -1]
+y <- test_data$price
+fit <- glmnet(x, y, alpha = 1, lambda = best_lambda)
+predictions <- predict.glmnet(
+                object = fit, 
+                newx = x)
+RSS <- sum((predictions - test_data$price)^2)
+```
+
+#### Quiz Question: Using the best L1 penalty, how many nonzero weights do you have? Count the number of nonzero coefficients first, and add 1 if the intercept is also nonzero. 
+
+```{r}
+fit$a0 #intercept (I think)
+require(pracma)
+nnz(as.vector(coef(fit)))
+```
+
+What if we absolutely wanted to limit ourselves to, say, 7 features? This may be important if we want to derive "a rule of thumb" --- an interpretable model that has only a few features in them.
+
+You are going to implement a simple, two phase procedure to achieve this goal:
+
+* Explore a large range of ‘l1_penalty’ values to find a narrow region of ‘l1_penalty’ values where models are likely to have the desired number of non-zero weights.
+* Further explore the narrow region you found to find a good value for ‘l1_penalty’ that achieves the desired sparsity. Here, we will again use a validation set to choose the best value for ‘l1_penalty’.
+
+For l1_penalty in ```10^seq(1, 4, length.out = 20)```:
+
+Fit a regression model with a given l1_penalty on TRAIN data. Add "alpha=l1_penalty" and "normalize=True" to the parameter list.
+
+```{r}
+x <- model.matrix(price~., data = train_data)[, -1]
+y <- train_data$price
+non_zeros<-vector()
+for (i in 10^seq(1, 4, length.out = 20)){
+        fit <- glmnet(x, y, alpha = 1, lambda = i, standardize = T, intercept = T, )
+        non_zeros[i]<-nnz(as.vector(coef(fit)))
+        print(non_zeros[i])
+}
+
+```
+
